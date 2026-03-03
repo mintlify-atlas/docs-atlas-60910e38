@@ -1,0 +1,99 @@
+{
+  "projectType": "frontend",
+  "projectName": "Better Home",
+  "projectDescription": "A minimal, delightful new-tab replacement for Chromium browsers with tasks, quick links, and a mood calendar.",
+  "theme": "almond",
+  "primaryColor": "#f59e0b",
+  "lightColor": "#fbbf24",
+  "darkColor": "#d97706",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "features/tasks",
+              "features/quick-links",
+              "features/mood-calendar",
+              "features/backup-restore"
+            ]
+          },
+          {
+            "group": "Customization",
+            "pages": [
+              "customization/widgets",
+              "customization/themes"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/setup",
+              "development/architecture",
+              "development/contributing"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Components",
+        "groups": [
+          {
+            "group": "Core Components",
+            "pages": [
+              "components/todo-list",
+              "components/quick-links",
+              "components/interactive-calendar"
+            ]
+          },
+          {
+            "group": "Hooks",
+            "pages": [
+              "components/hooks/use-local-storage",
+              "components/hooks/use-calendar-data"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "components/utils/backup-utils",
+              "components/utils/calendar-utils",
+              "components/utils/todo-utils",
+              "components/utils/url-utils"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Lightweight task management with sorting and filtering",
+    "Quick links with automatic favicon fetching",
+    "2026 mood calendar with quadrimester and full-year views",
+    "Customizable widget layout",
+    "Backup and restore functionality",
+    "Theme switching (light/dark/system)",
+    "Responsive design for all screen sizes",
+    "Built with React 19, TypeScript, and Tailwind CSS"
+  ],
+  "publicApiSurface": [
+    "TodoList component",
+    "QuickLinks component",
+    "InteractiveCalendar component",
+    "useLocalStorage hook",
+    "useCalendarData hook",
+    "createBackup function",
+    "downloadBackup function",
+    "restoreBackup function",
+    "parseBackupFile function"
+  ]
+}
