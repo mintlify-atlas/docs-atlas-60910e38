@@ -1,0 +1,244 @@
+---
+title: Development Setup
+description: Set up your development environment for Better Home
+---
+
+## Prerequisites
+
+Better Home uses **Bun** as its package manager and runtime. Ensure you have Bun installed before proceeding.
+
+<Tabs>
+  <Tab title="macOS / Linux / WSL">
+    ```bash
+    curl -fsSL https://bun.sh/install | bash
+    ```
+  </Tab>
+  <Tab title="Windows (PowerShell)">
+    ```powershell
+    powershell -c "irm bun.sh/install.ps1 | iex"
+    ```
+  </Tab>
+  <Tab title="via npm">
+    If you already have Node.js installed:
+    ```bash
+    npm install -g bun
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+After installation, restart your terminal and verify with `bun --version`.
+</Tip>
+
+## Clone and Install
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/SatyamVyas04/better-home.git
+    cd better-home
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    bun install
+    ```
+  </Step>
+</Steps>
+
+## Development Server
+
+Start the development server with hot module replacement:
+
+```bash
+bun run dev
+```
+
+This launches a local dev server at `http://localhost:5173` with hot reload for rapid development.
+
+<Warning>
+Hot reload works in the browser preview, but to test the full extension experience you must rebuild and reload the extension after code changes.
+</Warning>
+
+## Build for Production
+
+Build the extension for production:
+
+```bash
+bun run build
+```
+
+This command:
+1. Runs TypeScript type checking (`tsc -b`)
+2. Bundles the extension using Vite
+3. Outputs production-ready files to the `dist/` folder
+
+## Load Extension in Browser
+
+After building, load the extension in your Chromium-based browser:
+
+<Tabs>
+  <Tab title="Chrome">
+    1. Navigate to `chrome://extensions`
+    2. Enable **Developer mode** (toggle in the top-right corner)
+    3. Click **Load unpacked**
+    4. Select the `dist` folder
+    5. Open a **new tab** - welcome home!
+  </Tab>
+  
+  <Tab title="Edge">
+    1. Navigate to `edge://extensions`
+    2. Enable **Developer mode** (toggle in the bottom-left corner)
+    3. Click **Load unpacked**
+    4. Select the `dist` folder
+    5. Open a **new tab** - welcome home!
+  </Tab>
+  
+  <Tab title="Brave">
+    1. Navigate to `brave://extensions`
+    2. Enable **Developer mode** (toggle in the top-right corner)
+    3. Click **Load unpacked**
+    4. Select the `dist` folder
+    5. Open a **new tab** - welcome home!
+  </Tab>
+</Tabs>
+
+<Note>
+When you first open a new tab after installing, Chrome/Brave may display a warning about the changed new tab appearance. Select **"Keep it"** as this is the intended behavior for the extension.
+</Note>
+
+## Testing Changes
+
+During development:
+
+1. Make your code changes
+2. Rebuild the extension:
+   ```bash
+   bun run build
+   ```
+3. Go to your browser's extensions page (e.g., `chrome://extensions`)
+4. Click the **refresh** icon on the better-home card
+5. Open a fresh new tab to see your changes
+
+<Tip>
+Keep DevTools open on the new-tab page during active development - it sometimes forces a reload automatically.
+</Tip>
+
+## Additional Commands
+
+### Type Checking
+
+Run TypeScript type checking without building:
+
+```bash
+bun x tsc --noEmit
+```
+
+### Linting
+
+Check code style with Biome:
+
+```bash
+bun run lint
+```
+
+### Auto-fix Issues
+
+Automatically fix linting issues:
+
+```bash
+bun run fix
+```
+
+For unsafe fixes (use with caution):
+
+```bash
+bun run fix:unsafe
+```
+
+### Preview Build
+
+Preview the production build locally:
+
+```bash
+bun run preview
+```
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Bun command not found after installation">
+    Your shell may not have reloaded the PATH.
+    
+    **Fix:**
+    1. Close and reopen your terminal completely
+    2. If still not working, manually add Bun to your PATH:
+       - **macOS/Linux:** Add to `~/.bashrc` or `~/.zshrc`:
+         ```bash
+         export BUN_INSTALL="$HOME/.bun"
+         export PATH="$BUN_INSTALL/bin:$PATH"
+         ```
+       - **Windows:** Ensure `%USERPROFILE%\.bun\bin` is in your system PATH
+    3. Verify with `bun --version`
+  </Accordion>
+
+  <Accordion title="Port 5173 already in use">
+    Another process is using the default Vite port.
+    
+    **Fix:**
+    ```bash
+    # Find and kill the process (Linux/macOS)
+    lsof -ti:5173 | xargs kill -9
+    
+    # Or run Vite on a different port
+    bun run dev -- --port 3000
+    ```
+  </Accordion>
+
+  <Accordion title="Cannot find module or path alias errors">
+    This usually means `@/` path aliases aren't resolving correctly.
+    
+    **Fix:**
+    1. Verify `vite.config.ts` contains:
+       ```ts
+       resolve: {
+         alias: {
+           "@": path.resolve(__dirname, "./src"),
+         },
+       },
+       ```
+    2. Confirm `tsconfig.json` mirrors the alias:
+       ```json
+       "paths": {
+         "@/*": ["./src/*"]
+       }
+       ```
+    3. Restart the dev server
+  </Accordion>
+
+  <Accordion title="Extension not updating after changes">
+    Chrome aggressively caches unpacked extensions.
+    
+    **Steps:**
+    1. Go to your browser's extensions page (e.g., `chrome://extensions`)
+    2. Click the **refresh** icon on the better-home card
+    3. Open a fresh new tab
+  </Accordion>
+
+  <Accordion title="Vite HMR not working / stale cache">
+    Try clearing the cache and restarting:
+    
+    ```bash
+    rm -rf node_modules/.vite
+    bun run dev
+    ```
+    
+    If issues persist, delete `node_modules` entirely and reinstall:
+    
+    ```bash
+    rm -rf node_modules bun.lockb
+    bun install
+    ```
+  </Accordion>
+</AccordionGroup>

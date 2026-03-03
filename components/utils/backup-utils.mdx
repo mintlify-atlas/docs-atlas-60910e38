@@ -1,0 +1,207 @@
+---
+title: "Backup Utilities"
+description: "Utilities for creating, downloading, and restoring application backups"
+---
+
+## Overview
+
+The backup utilities module provides functions for managing application data backups. It handles exporting localStorage data to JSON files and restoring from backup files.
+
+## Storage Keys
+
+The backup system tracks the following localStorage keys:
+
+```typescript
+const STORAGE_KEYS = [
+  "better-home-widget-settings",
+  "better-home-todos",
+  "better-home-todo-sort",
+  "better-home-todo-filters",
+  "better-home-quick-links",
+  "mood-calendar-2026-data",
+  "mood-calendar-show-numbers",
+  "vite-ui-theme",
+] as const;
+```
+
+## Types
+
+### BackupData
+
+```typescript
+interface BackupData {
+  [key: string]: unknown;
+}
+```
+
+Represents the backup data structure, which is a key-value map of localStorage entries.
+
+## Functions
+
+### createBackup
+
+```typescript
+function createBackup(): BackupData
+```
+
+Creates a backup object containing all tracked localStorage data.
+
+**Returns:** `BackupData` - An object containing all current application data
+
+**Example:**
+
+```tsx
+import { createBackup, downloadBackup } from "@/lib/backup-utils";
+
+function BackupButton() {
+  const handleDownloadBackup = () => {
+    const backup = createBackup();
+    downloadBackup(backup);
+  };
+
+  return <button onClick={handleDownloadBackup}>Download Backup</button>;
+}
+```
+
+<Info>
+  The function automatically parses JSON values and preserves raw strings for non-JSON data.
+</Info>
+
+### downloadBackup
+
+```typescript
+function downloadBackup(backup: BackupData): void
+```
+
+Downloads a backup object as a JSON file.
+
+**Parameters:**
+- `backup` - The backup data to download
+
+**Behavior:**
+- Creates a blob with formatted JSON (2-space indentation)
+- Generates filename: `better-home-backup-YYYY-MM-DD.json`
+- Triggers browser download and cleans up resources
+
+**Example:**
+
+```tsx
+const backup = createBackup();
+downloadBackup(backup);
+// Downloads: better-home-backup-2026-03-03.json
+```
+
+### restoreBackup
+
+```typescript
+function restoreBackup(backup: BackupData): void
+```
+
+Restores application data from a backup object.
+
+**Parameters:**
+- `backup` - The backup data to restore
+
+**Behavior:**
+- Writes all backup entries to localStorage
+- Preserves theme value as raw string
+- Stringifies all other values as JSON
+
+<Warning>
+  This function overwrites existing localStorage data. Consider prompting users before restoring.
+</Warning>
+
+**Example:**
+
+```tsx
+import { parseBackupFile, restoreBackup } from "@/lib/backup-utils";
+
+function RestoreButton() {
+  const handleUploadBackup = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    parseBackupFile(file, (backup) => {
+      restoreBackup(backup);
+      window.location.reload();
+    });
+
+    event.target.value = "";
+  };
+
+  return <input type="file" accept=".json" onChange={handleUploadBackup} />;
+}
+```
+
+### parseBackupFile
+
+```typescript
+function parseBackupFile(
+  file: File,
+  onSuccess: (backup: BackupData) => void
+): void
+```
+
+Parses a backup file and invokes a callback with the parsed data.
+
+**Parameters:**
+- `file` - The File object to parse
+- `onSuccess` - Callback invoked with parsed backup data
+
+**Behavior:**
+- Reads file as text using FileReader API
+- Parses JSON content
+- Silently fails on invalid JSON
+
+**Example:**
+
+```tsx
+parseBackupFile(file, (backup) => {
+  console.log("Backup loaded:", backup);
+  restoreBackup(backup);
+});
+```
+
+## Complete Example
+
+Here's a complete backup/restore implementation:
+
+```tsx
+import {
+  createBackup,
+  downloadBackup,
+  parseBackupFile,
+  restoreBackup,
+} from "@/lib/backup-utils";
+
+function BackupManager() {
+  const handleDownload = () => {
+    const backup = createBackup();
+    downloadBackup(backup);
+  };
+
+  const handleRestore = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    parseBackupFile(file, (backup) => {
+      restoreBackup(backup);
+      window.location.reload();
+    });
+
+    event.target.value = "";
+  };
+
+  return (
+    <div>
+      <button onClick={handleDownload}>Download Backup</button>
+      <input type="file" accept=".json" onChange={handleRestore} />
+    </div>
+  );
+}
+```
+
+## Related
+
+- [Backup & Restore Feature](/features/backup-restore) - User guide for backup functionality
+- [Widget Customization](/customization/widgets) - Uses backup utilities for data export/import

@@ -1,0 +1,194 @@
+---
+title: TodoList
+description: Interactive task management component with filtering, sorting, and drag-and-drop reordering
+---
+
+## Overview
+
+The `TodoList` component provides a fully-featured task management interface with local storage persistence. It supports task creation, completion tracking, importance marking, drag-and-drop reordering, and context-menu based filtering and sorting.
+
+## Props
+
+<ParamField path="fullSize" type="boolean" default="false">
+  When `true`, the component expands to fill available width and removes the max-height constraint. Used when the TodoList is displayed as a standalone widget.
+</ParamField>
+
+## Usage
+
+### Basic Implementation
+
+```tsx
+import { TodoList } from "@/components/todo-list";
+
+function App() {
+  return (
+    <div className="flex min-h-0 flex-1">
+      <TodoList />
+    </div>
+  );
+}
+```
+
+### Full-Size Mode
+
+```tsx
+import { TodoList } from "@/components/todo-list";
+
+function App() {
+  return (
+    <div className="flex min-h-0 flex-1">
+      <TodoList fullSize />
+    </div>
+  );
+}
+```
+
+Example from `src/app.tsx:112`:
+
+```tsx
+tasks: (
+  <div className="flex min-h-0 flex-1">
+    <TodoList fullSize />
+  </div>
+),
+```
+
+## State Management
+
+The component uses `useLocalStorage` hooks to persist data across sessions:
+
+### Todos Storage
+
+```typescript
+const [todos, setTodos] = useLocalStorage<Todo[]>("better-home-todos", [
+  {
+    id: "default-todo",
+    text: "get shit done",
+    completed: false,
+    important: false,
+    createdAt: Date.now(),
+  },
+]);
+```
+
+### Sort Mode Storage
+
+```typescript
+const [sortMode, setSortMode] = useLocalStorage<SortMode>(
+  "better-home-todo-sort",
+  "manual"
+);
+```
+
+### Filters Storage
+
+```typescript
+const [filters, setFilters] = useLocalStorage<TodoFilters>(
+  "better-home-todo-filters",
+  {
+    hideCompleted: false,
+    importantOnly: false,
+  }
+);
+```
+
+## Types and Interfaces
+
+### Todo
+
+From `src/types/todo.ts:1`:
+
+```typescript
+interface Todo {
+  id: string;
+  text: string;
+  completed: boolean;
+  important: boolean;
+  createdAt: number;
+}
+```
+
+### SortMode
+
+From `src/types/todo.ts:9`:
+
+```typescript
+type SortMode = "manual" | "oldest" | "newest";
+```
+
+### TodoFilters
+
+From `src/types/todo.ts:11`:
+
+```typescript
+interface TodoFilters {
+  hideCompleted: boolean;
+  importantOnly: boolean;
+}
+```
+
+## Features
+
+### Task Management
+
+- **Add Tasks**: Enter text in the input field and press Enter or click the plus button
+- **Complete Tasks**: Click the checkbox to mark tasks as complete/incomplete
+- **Delete Tasks**: Hover over a task and hold the delete button for 1.5 seconds
+- **Mark Important**: Right-click a task and select "mark important" to add a star indicator
+
+### Sorting Options
+
+Accessed via right-click context menu on the card:
+
+- **Manual Order**: Default mode, allows drag-and-drop reordering
+- **Oldest First**: Sorts by `createdAt` timestamp ascending
+- **Newest First**: Sorts by `createdAt` timestamp descending
+
+### Filtering Options
+
+Accessed via right-click context menu on the card:
+
+- **Hide Completed**: Hides tasks where `completed` is `true`
+- **Show Important Only**: Shows only tasks where `important` is `true`
+
+### Drag and Drop
+
+Drag-and-drop reordering is enabled when `sortMode` is set to `"manual"`. The component uses Framer Motion's `Reorder` components for smooth animations.
+
+From `src/components/todo-list.tsx:195`:
+
+```tsx
+<Reorder.Group
+  as="div"
+  axis="y"
+  className="flex flex-col space-y-1"
+  onReorder={handleReorder}
+  values={displayedTodos}
+>
+  {/* Task items */}
+</Reorder.Group>
+```
+
+## Animation
+
+Tasks animate in and out using Framer Motion's `AnimatePresence`:
+
+```typescript
+initial={{ filter: "blur(4px)", opacity: 0, y: 10, scale: 0.95 }}
+animate={{ filter: "blur(0px)", opacity: 1, y: 0, scale: 1 }}
+exit={{ filter: "blur(4px)", opacity: 0, y: 10, scale: 0.95 }}
+transition={{ duration: 0.3, ease: "easeOut" }}
+```
+
+## Dependencies
+
+- `motion/react` - Animation and drag-and-drop functionality
+- `@tabler/icons-react` - UI icons
+- `@/hooks/use-local-storage` - Data persistence
+- `@/lib/todo-utils` - Filtering and sorting utilities
+- `@/components/ui/*` - Shadcn UI components
+
+## Related Components
+
+- [QuickLinks](/components/quick-links) - Companion widget for link management
+- [InteractiveCalendar](/components/interactive-calendar) - Companion widget for mood tracking

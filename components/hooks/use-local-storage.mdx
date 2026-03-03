@@ -1,0 +1,197 @@
+---
+title: useLocalStorage
+description: A React hook for managing state synchronized with localStorage, with automatic JSON serialization and cross-tab synchronization.
+---
+
+## Overview
+
+The `useLocalStorage` hook provides a simple API for persisting state to `localStorage` with automatic JSON serialization/deserialization. It syncs state across browser tabs using the storage event API and gracefully handles storage quota errors and private browsing modes.
+
+## Signature
+
+```typescript
+function useLocalStorage<T>(
+  key: string,
+  initialValue: T
+): [T, (value: T | ((prev: T) => T)) => void]
+```
+
+## Parameters
+
+<ParamField path="key" type="string" required>
+  The localStorage key to store the value under. Must be unique across your application.
+</ParamField>
+
+<ParamField path="initialValue" type="T" required>
+  The initial value to use if no value exists in localStorage. This value is returned when localStorage is empty or when parsing fails.
+</ParamField>
+
+## Return Value
+
+Returns a tuple with two elements, similar to `useState`:
+
+<ParamField path="[0]" type="T">
+  The current value stored in localStorage, or the initial value if none exists.
+</ParamField>
+
+<ParamField path="[1]" type="(value: T | ((prev: T) => T)) => void">
+  A setter function that updates both the state and localStorage. Accepts either a new value or an updater function that receives the previous value.
+</ParamField>
+
+## Features
+
+- **Automatic Persistence**: Values are automatically serialized to JSON and stored in localStorage
+- **Cross-tab Sync**: Changes in one tab are automatically reflected in other tabs via the storage event
+- **Type Safety**: Full TypeScript support with generic type parameter
+- **Updater Functions**: Supports functional updates like `setState`
+- **Error Handling**: Gracefully handles storage quota exceeded and private browsing mode
+
+## Usage Examples
+
+### Basic Usage
+
+```tsx
+import { useLocalStorage } from "@/hooks/use-local-storage";
+
+function MyComponent() {
+  const [showNumbers, setShowNumbers] = useLocalStorage(
+    "mood-calendar-show-numbers",
+    true
+  );
+
+  return (
+    <button onClick={() => setShowNumbers(!showNumbers)}>
+      {showNumbers ? "Hide numbers" : "Show numbers"}
+    </button>
+  );
+}
+```
+
+### Storing Complex Objects
+
+```tsx
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import type { Todo } from "@/types/todo";
+
+function TodoList() {
+  const [todos, setTodos] = useLocalStorage<Todo[]>("better-home-todos", [
+    {
+      id: "default-todo",
+      text: "get shit done",
+      completed: false,
+      important: false,
+      createdAt: Date.now(),
+    },
+  ]);
+
+  const addTodo = (text: string) => {
+    const todo: Todo = {
+      id: crypto.randomUUID(),
+      text: text.toLowerCase(),
+      completed: false,
+      important: false,
+      createdAt: Date.now(),
+    };
+
+    setTodos((prev) => [...prev, todo]);
+  };
+
+  return <div>{/* ... */}</div>;
+}
+```
+
+### Managing Application Settings
+
+```tsx
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import type { WidgetSettings } from "@/types/widget-settings";
+
+function App() {
+  const [settings, setSettings] = useLocalStorage<WidgetSettings>(
+    "better-home-settings",
+    {
+      showTodos: true,
+      showCalendar: true,
+      showQuickLinks: true,
+    }
+  );
+
+  const toggleTodos = () => {
+    setSettings((prev) => ({
+      ...prev,
+      showTodos: !prev.showTodos,
+    }));
+  };
+
+  return <div>{/* ... */}</div>;
+}
+```
+
+### Multiple Storage Keys
+
+```tsx
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import type { SortMode, TodoFilters } from "@/types/todo";
+
+function TodoList() {
+  const [sortMode, setSortMode] = useLocalStorage<SortMode>(
+    "better-home-todo-sort",
+    "manual"
+  );
+
+  const [filters, setFilters] = useLocalStorage<TodoFilters>(
+    "better-home-todo-filters",
+    {
+      hideCompleted: false,
+      importantOnly: false,
+    }
+  );
+
+  return <div>{/* ... */}</div>;
+}
+```
+
+## Implementation Details
+
+### Storage Event Handling
+
+The hook automatically listens for storage events to synchronize state across browser tabs:
+
+```typescript
+useEffect(() => {
+  const handleStorageChange = (e: StorageEvent) => {
+    if (e.key === key && e.newValue) {
+      try {
+        setStoredValue(JSON.parse(e.newValue) as T);
+      } catch {
+        // Silently ignore parse errors
+      }
+    }
+  };
+
+  window.addEventListener("storage", handleStorageChange);
+  return () => window.removeEventListener("storage", handleStorageChange);
+}, [key]);
+```
+
+### Error Handling
+
+The hook silently catches and handles errors:
+
+- **Parse errors** when reading from localStorage (falls back to initial value)
+- **Quota exceeded errors** when writing to localStorage (state updates but storage fails)
+- **Private browsing mode** where localStorage may be disabled
+
+## Related Types
+
+Commonly used with these types:
+
+- `Todo` from `@/types/todo`
+- `TodoFilters` from `@/types/todo`
+- `SortMode` from `@/types/todo`
+- `WidgetSettings` from `@/types/widget-settings`
+- `CalendarData` from `@/types/calendar`
+
+## See Also
+
+- [useCalendarData](/components/hooks/use-calendar-data) - Uses `useLocalStorage` internally for calendar data persistence

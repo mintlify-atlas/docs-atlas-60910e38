@@ -1,0 +1,233 @@
+---
+title: QuickLinks
+description: Bookmark management component with grid and list views, favicon display, and local storage persistence
+---
+
+## Overview
+
+The `QuickLinks` component provides a visual bookmark manager that displays saved links with their favicons. It supports two display modes: a compact grid view and an expanded list view.
+
+## Props
+
+<ParamField path="expanded" type="boolean" default="false">
+  When `true`, displays links in a vertical list format with full titles and delete buttons. When `false`, displays links in a compact grid of favicon icons.
+</ParamField>
+
+<ParamField path="fullSize" type="boolean" default="false">
+  When `true`, the component expands to fill available width and height. Used when QuickLinks is displayed as a standalone widget.
+</ParamField>
+
+## Usage
+
+### Grid View (Default)
+
+```tsx
+import { QuickLinks } from "@/components/quick-links";
+
+function App() {
+  return <QuickLinks />;
+}
+```
+
+### Expanded List View
+
+```tsx
+import { QuickLinks } from "@/components/quick-links";
+
+function App() {
+  return <QuickLinks expanded />;
+}
+```
+
+### Full-Size Standalone Widget
+
+```tsx
+import { QuickLinks } from "@/components/quick-links";
+
+function App() {
+  return (
+    <div className="flex min-h-0 flex-1">
+      <QuickLinks expanded fullSize />
+    </div>
+  );
+}
+```
+
+Example from `src/app.tsx:117`:
+
+```tsx
+links: (
+  <div className="flex min-h-0 flex-1">
+    <QuickLinks expanded fullSize />
+  </div>
+),
+```
+
+## State Management
+
+The component uses `useLocalStorage` to persist bookmarks:
+
+```typescript
+const [links, setLinks] = useLocalStorage<QuickLink[]>(
+  "better-home-quick-links",
+  [
+    {
+      id: "default-github",
+      title: "github",
+      url: "https://github.com/SatyamVyas04",
+      favicon: "https://www.google.com/s2/favicons?domain=github.com&sz=64",
+    },
+  ]
+);
+```
+
+## Types and Interfaces
+
+### QuickLinksProps
+
+From `src/components/quick-links.tsx:27`:
+
+```typescript
+interface QuickLinksProps {
+  expanded?: boolean;
+  fullSize?: boolean;
+}
+```
+
+### QuickLink
+
+From `src/components/quick-links.tsx:32`:
+
+```typescript
+interface QuickLink {
+  id: string;
+  title: string;
+  url: string;
+  favicon: string;
+}
+```
+
+## Features
+
+### Adding Links
+
+1. Enter a URL in the input field (with or without `https://` protocol)
+2. Press Enter or click the plus button
+3. The URL is automatically normalized and validated
+4. Title is extracted from the domain name
+5. Favicon is fetched using Google's favicon service
+
+From `src/components/quick-links.tsx:56`:
+
+```tsx
+const addLink = () => {
+  const normalizedUrl = normalizeUrl(newUrl);
+  if (!normalizedUrl) return;
+  if (!isValidUrl(normalizedUrl)) return;
+
+  const link: QuickLink = {
+    id: crypto.randomUUID(),
+    title: extractTitle(normalizedUrl),
+    url: normalizedUrl,
+    favicon: getFaviconUrl(normalizedUrl),
+  };
+
+  setLinks((prev) => [...prev, link]);
+  setNewUrl("");
+};
+```
+
+### Deleting Links
+
+- **Grid View**: Hover over a link to reveal an X button in the top-right corner
+- **List View**: Hover over a link to reveal a trash icon button
+
+### URL Utilities
+
+The component relies on utility functions from `@/lib/url-utils`:
+
+- `normalizeUrl(url)` - Adds `https://` protocol if missing
+- `isValidUrl(url)` - Validates URL format
+- `extractTitle(url)` - Extracts domain name as title
+- `getFaviconUrl(url)` - Generates Google Favicon Service URL
+
+## Display Modes
+
+### Grid View (`expanded={false}`)
+
+From `src/components/quick-links.tsx:166`:
+
+```tsx
+<div className="grid grid-cols-7 gap-1.5 sm:grid-cols-11 md:grid-cols-15 lg:grid-cols-7">
+  {links.map((link) => (
+    <div className="group relative w-fit">
+      <a className="flex size-8 items-center justify-center rounded-md border">
+        <img src={link.favicon} alt={link.title} className="size-4" />
+      </a>
+      <button className="absolute -top-1.5 -right-1.5 size-4 opacity-0 group-hover:opacity-100">
+        <IconX className="size-2" />
+      </button>
+    </div>
+  ))}
+</div>
+```
+
+### List View (`expanded={true}`)
+
+From `src/components/quick-links.tsx:92`:
+
+```tsx
+<ScrollArea className="min-h-0 flex-1">
+  {links.map((link) => (
+    <a className="group flex items-center gap-2 rounded-md border px-1.5 py-1">
+      <img src={link.favicon} className="size-4" />
+      <span className="flex-1 truncate text-xs">{link.title}</span>
+      <Button className="size-6 opacity-0 group-hover:opacity-100">
+        <IconTrash className="size-3.5" />
+      </Button>
+    </a>
+  ))}
+</ScrollArea>
+```
+
+## Animation
+
+Links animate in and out using Framer Motion:
+
+```typescript
+initial={{ filter: "blur(4px)", opacity: 0, x: 10, scale: 0.95 }}
+animate={{ filter: "blur(0px)", opacity: 1, x: 0, scale: 1 }}
+exit={{ filter: "blur(4px)", opacity: 0, x: 10, scale: 0.95 }}
+transition={{ duration: 0.3, ease: "easeOut" }}
+```
+
+## Styling
+
+The component dynamically calculates CSS classes based on props:
+
+From `src/components/quick-links.tsx:239`:
+
+```typescript
+const getCardClasses = () => {
+  if (fullSize) {
+    return "flex min-h-0 w-full flex-1 flex-col gap-0 border-border/50 py-2";
+  }
+  if (expanded) {
+    return "flex min-h-0 w-full flex-1 flex-col gap-0 border-border/50 py-2 lg:w-71";
+  }
+  return "flex h-fit max-h-40 w-full flex-col gap-0 border-border/50 py-2 lg:max-h-none lg:w-71";
+};
+```
+
+## Dependencies
+
+- `motion/react` - Animation effects
+- `@tabler/icons-react` - UI icons
+- `@/hooks/use-local-storage` - Data persistence
+- `@/lib/url-utils` - URL processing utilities
+- `@/components/ui/*` - Shadcn UI components
+
+## Related Components
+
+- [TodoList](/components/todo-list) - Companion widget for task management
+- [InteractiveCalendar](/components/interactive-calendar) - Companion widget for mood tracking

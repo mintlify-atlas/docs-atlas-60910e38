@@ -1,0 +1,326 @@
+---
+title: Theme Customization
+description: Learn how to customize the appearance of Better Home with light, dark, and system themes
+---
+
+Better Home supports three theme modes: light, dark, and system (which follows your operating system preferences). The theme system is built with React Context and integrates seamlessly with the Chrome extension architecture.
+
+## Theme Options
+
+<CardGroup cols={3}>
+  <Card title="Light Mode" icon="sun">
+    Clean, bright interface perfect for daytime use
+  </Card>
+  <Card title="Dark Mode" icon="moon">
+    Eye-friendly dark interface for low-light environments
+  </Card>
+  <Card title="System Mode" icon="desktop">
+    Automatically matches your operating system theme
+  </Card>
+</CardGroup>
+
+## Changing Themes
+
+### Using the Theme Toggle
+
+1. Click the Better Home extension icon in your toolbar
+2. Click the sun/moon icon in the top-right corner of the popup
+3. Select your preferred theme from the dropdown:
+   - **Light**: Forces light mode
+   - **Dark**: Forces dark mode
+   - **System**: Follows OS preference
+
+<Frame>
+  <img src="/images/theme-toggle.png" alt="Theme toggle dropdown" />
+</Frame>
+
+<Tip>
+Your theme preference is saved to localStorage and persists across browser sessions.
+</Tip>
+
+## Theme Provider Implementation
+
+Better Home uses a custom `ThemeProvider` component that manages theme state and applies theme classes:
+
+```tsx src/components/theme-provider.tsx
+import { createContext, useContext, useEffect, useState } from "react";
+
+type Theme = "dark" | "light" | "system";
+
+interface ThemeProviderProps {
+  children: React.ReactNode;
+  defaultTheme?: Theme;
+  storageKey?: string;
+}
+
+interface ThemeProviderState {
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+}
+
+const ThemeProviderContext = createContext<ThemeProviderState>({
+  theme: "system",
+  setTheme: () => null,
+});
+
+export function ThemeProvider({
+  children,
+  defaultTheme = "system",
+  storageKey = "vite-ui-theme",
+  ...props
+}: ThemeProviderProps) {
+  const [theme, setTheme] = useState<Theme>(
+    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
+  );
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove("light", "dark");
+
+    if (theme === "system") {
+      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
+        .matches
+        ? "dark"
+        : "light";
+      root.classList.add(systemTheme);
+      return;
+    }
+
+    root.classList.add(theme);
+  }, [theme]);
+
+  const value = {
+    theme,
+    setTheme: (theme: Theme) => {
+      localStorage.setItem(storageKey, theme);
+      setTheme(theme);
+    },
+  };
+
+  return (
+    <ThemeProviderContext.Provider {...props} value={value}>
+      {children}
+    </ThemeProviderContext.Provider>
+  );
+}
+
+export const useTheme = () => {
+  const context = useContext(ThemeProviderContext);
+
+  if (context === undefined) {
+    throw new Error("useTheme must be used within a ThemeProvider");
+  }
+
+  return context;
+};
+```
+
+### Key Features
+
+<AccordionGroup>
+  <Accordion title="System Theme Detection">
+    When `theme === "system"`, the provider uses `window.matchMedia("(prefers-color-scheme: dark)")` to detect the OS theme preference and applies the appropriate class to the document root.
+  </Accordion>
+
+  <Accordion title="localStorage Persistence">
+    Theme preferences are saved to localStorage with the key `vite-ui-theme`, ensuring your selection persists across sessions.
+  </Accordion>
+
+  <Accordion title="Dynamic Class Management">
+    The provider adds either `light` or `dark` class to the `<html>` element, which cascades to all styled components using Tailwind's dark mode variants.
+  </Accordion>
+</AccordionGroup>
+
+## Mode Toggle Component
+
+The theme switcher UI is implemented using the `ModeToggle` component:
+
+```tsx src/components/mode-toggle.tsx
+import { IconMoon, IconSun } from "@tabler/icons-react";
+import { useTheme } from "@/components/theme-provider";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+export function ModeToggle() {
+  const { setTheme } = useTheme();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="icon-sm" variant="outline">
+          <IconSun className="size-3 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+          <IconMoon className="absolute size-3 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+          <span className="sr-only">Toggle theme</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => setTheme("light")}>
+          Light
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("dark")}>
+          Dark
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("system")}>
+          System
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+```
+
+### Toggle Animation
+
+The button features smooth icon transitions using Tailwind CSS:
+- **Light mode**: Sun icon visible, moon icon hidden with rotation
+- **Dark mode**: Moon icon visible, sun icon hidden with rotation
+- Icons animate smoothly when switching themes
+
+## Chrome Extension Integration
+
+Better Home synchronizes theme changes between the popup and the new tab page using Chrome's messaging API:
+
+```typescript src/components/theme-provider.tsx
+useEffect(() => {
+  // ... theme application logic ...
+
+  // Notify the main content window about theme change
+  chrome.tabs?.query({ active: true, currentWindow: true }, (tabs) => {
+    const tabId = tabs[0]?.id;
+    if (tabId) {
+      chrome.tabs?.sendMessage(tabId, {
+        type: "THEME_CHANGED",
+        theme,
+      });
+    }
+  });
+}, [theme]);
+```
+
+The new tab page listens for theme changes:
+
+```typescript src/app.tsx
+useEffect(() => {
+  const handleThemeMessage = (
+    message: ChromeMessage,
+    _sender: unknown,
+    _sendResponse: unknown
+  ) => {
+    if (message.type === "THEME_CHANGED" && message.theme) {
+      const root = window.document.documentElement;
+      root.classList.remove("light", "dark");
+      root.classList.add(message.theme);
+      localStorage.setItem("vite-ui-theme", message.theme);
+    }
+  };
+
+  chrome?.runtime?.onMessage?.addListener?.(handleThemeMessage);
+
+  return () => {
+    chrome?.runtime?.onMessage?.removeListener?.(handleThemeMessage);
+  };
+}, []);
+```
+
+<Info>
+This ensures theme changes in the popup instantly reflect on your new tab page without requiring a refresh.
+</Info>
+
+## Using Themes in Your Components
+
+When building custom components or extending Better Home, use the `useTheme` hook to access theme state:
+
+```tsx
+import { useTheme } from "@/components/theme-provider";
+
+function MyCustomComponent() {
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <div>
+      <p>Current theme: {theme}</p>
+      <button onClick={() => setTheme("dark")}>Switch to Dark</button>
+    </div>
+  );
+}
+```
+
+### Styling with Dark Mode
+
+Use Tailwind's `dark:` variant to create theme-aware styles:
+
+```tsx
+<div className="bg-white text-black dark:bg-gray-900 dark:text-white">
+  This adapts to the current theme
+</div>
+```
+
+## Theme Provider Setup
+
+Both the popup and main app wrap their root components with `ThemeProvider`:
+
+### Popup Setup
+
+```tsx src/popup-app.tsx
+function PopupApp() {
+  return (
+    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      {/* Popup content */}
+    </ThemeProvider>
+  );
+}
+```
+
+### Main App Setup
+
+```tsx src/app.tsx
+function App() {
+  return (
+    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+      {/* New tab page content */}
+    </ThemeProvider>
+  );
+}
+```
+
+<Note>
+The popup defaults to dark theme, while the main app defaults to system theme. Both use the same storage key to ensure synchronization.
+</Note>
+
+## Best Practices
+
+<Steps>
+  <Step title="Use system theme by default">
+    Let Better Home adapt to your OS preferences automatically
+  </Step>
+  <Step title="Leverage dark mode for night use">
+    Switch to dark mode in low-light environments to reduce eye strain
+  </Step>
+  <Step title="Test both themes when customizing">
+    Ensure your custom styles work well in both light and dark modes
+  </Step>
+  <Step title="Use semantic color classes">
+    Prefer `bg-background`, `text-foreground` over hardcoded colors for automatic theme adaptation
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Theme not persisting">
+    Check that your browser allows localStorage for the extension. In incognito mode, some browsers restrict storage access.
+  </Accordion>
+
+  <Accordion title="System theme not updating">
+    Ensure your operating system theme preference is set correctly. Better Home respects the `prefers-color-scheme` media query.
+  </Accordion>
+
+  <Accordion title="Theme not syncing between popup and tab">
+    Verify that the Chrome extension has proper permissions. The theme sync requires message passing between extension contexts.
+  </Accordion>
+</AccordionGroup>

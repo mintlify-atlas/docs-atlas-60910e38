@@ -1,0 +1,376 @@
+---
+title: Contributing
+description: Guidelines for contributing to Better Home
+---
+
+## Welcome Contributors!
+
+Contributions, issues, and feature requests are welcome! This guide will help you get started with contributing to Better Home.
+
+## Getting Started
+
+<Steps>
+  <Step title="Fork the repository">
+    Fork the [Better Home repository](https://github.com/SatyamVyas04/better-home) to your GitHub account.
+  </Step>
+
+  <Step title="Clone your fork">
+    ```bash
+    git clone https://github.com/YOUR_USERNAME/better-home.git
+    cd better-home
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    bun install
+    ```
+  </Step>
+
+  <Step title="Create a feature branch">
+    ```bash
+    git checkout -b feat/amazing-feature
+    ```
+  </Step>
+</Steps>
+
+## Development Workflow
+
+### 1. Make Your Changes
+
+Develop your feature or fix:
+
+```bash
+bun run dev
+```
+
+- Make incremental, logical commits
+- Test your changes thoroughly in the browser
+- Ensure the extension builds successfully
+
+### 2. Code Style
+
+Better Home uses **Biome** for linting and formatting, configured with the **Ultracite** preset for consistent code style.
+
+<CodeGroup>
+```bash Check for Issues
+bun run lint
+```
+
+```bash Auto-fix Issues
+bun run fix
+```
+
+```bash Unsafe Fixes (use with caution)
+bun run fix:unsafe
+```
+</CodeGroup>
+
+<Info>
+The pre-commit hook automatically runs `ultracite fix` on staged files before each commit, ensuring code style consistency.
+</Info>
+
+### 3. Type Checking
+
+Ensure your code passes TypeScript type checking:
+
+```bash
+bun x tsc --noEmit
+```
+
+Or run the full build:
+
+```bash
+bun run build
+```
+
+### 4. Commit Your Changes
+
+Better Home uses **Conventional Commits** enforced by **commitlint**.
+
+#### Commit Message Format
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+#### Commit Types
+
+<AccordionGroup>
+  <Accordion title="feat" icon="plus">
+    A new feature for the user
+    
+    ```bash
+    git commit -m "feat: add context menu to todo items"
+    git commit -m "feat(calendar): add hold-to-clear functionality"
+    ```
+  </Accordion>
+
+  <Accordion title="fix" icon="wrench">
+    A bug fix
+    
+    ```bash
+    git commit -m "fix: resolve todo list spacing issue"
+    git commit -m "fix(backup): improve restore functionality"
+    ```
+  </Accordion>
+
+  <Accordion title="docs" icon="book">
+    Documentation changes only
+    
+    ```bash
+    git commit -m "docs: update installation instructions"
+    git commit -m "docs(readme): clarify browser compatibility"
+    ```
+  </Accordion>
+
+  <Accordion title="style" icon="paintbrush">
+    Code style changes (formatting, missing semicolons, etc.)
+    
+    ```bash
+    git commit -m "style: format with Biome"
+    ```
+  </Accordion>
+
+  <Accordion title="refactor" icon="code">
+    Code change that neither fixes a bug nor adds a feature
+    
+    ```bash
+    git commit -m "refactor: simplify calendar layout logic"
+    git commit -m "refactor(hooks): extract storage sync logic"
+    ```
+  </Accordion>
+
+  <Accordion title="perf" icon="gauge-high">
+    Performance improvement
+    
+    ```bash
+    git commit -m "perf: optimize calendar render performance"
+    ```
+  </Accordion>
+
+  <Accordion title="test" icon="flask">
+    Adding or updating tests
+    
+    ```bash
+    git commit -m "test: add tests for todo-utils"
+    ```
+  </Accordion>
+
+  <Accordion title="chore" icon="gear">
+    Changes to build process, dependencies, or tooling
+    
+    ```bash
+    git commit -m "chore: update dependencies"
+    git commit -m "chore(deps): upgrade motion to v12"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+The commit-msg hook automatically validates your commit messages. Invalid commits will be rejected.
+</Note>
+
+#### Example Commits
+
+```bash
+# Good commits
+git commit -m "feat: add drag-to-reorder for todo items"
+git commit -m "fix: prevent duplicate quick links"
+git commit -m "docs: add troubleshooting section to README"
+git commit -m "refactor(calendar): extract month grid logic"
+
+# Bad commits (will be rejected)
+git commit -m "updated stuff"           # Missing type
+git commit -m "Fix: bug fix"            # Wrong capitalization
+git commit -m "feat:add feature"        # Missing space after colon
+```
+
+### 5. Push Your Changes
+
+Push your feature branch to your fork:
+
+```bash
+git push origin feat/amazing-feature
+```
+
+### 6. Open a Pull Request
+
+<Steps>
+  <Step title="Create the PR">
+    Go to the [Better Home repository](https://github.com/SatyamVyas04/better-home) and click **"New Pull Request"**.
+  </Step>
+
+  <Step title="Write a descriptive title">
+    Use conventional commit format for the PR title:
+    
+    ```
+    feat: add drag-to-reorder for todo items
+    ```
+  </Step>
+
+  <Step title="Provide context in the description">
+    - Summarize what changed and why
+    - Link related issues (e.g., "Closes #123")
+    - Include screenshots for UI changes
+    - Note any breaking changes
+  </Step>
+
+  <Step title="Ensure checks pass">
+    - All commits follow conventional commit format
+    - Code passes linting (`bun run lint`)
+    - Project builds successfully (`bun run build`)
+  </Step>
+</Steps>
+
+## Code Style Guidelines
+
+### TypeScript
+
+- **Use strict types** - no `any` unless absolutely necessary
+- **Prefer interfaces** for object shapes
+- **Use type inference** when possible
+- **Export types** from `src/types/` directory
+
+```typescript
+// Good
+interface TodoItem {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
+function addTodo(todo: TodoItem): void {
+  // ...
+}
+
+// Avoid
+function addTodo(todo: any) {
+  // ...
+}
+```
+
+### React
+
+- **Functional components only** - no class components
+- **Use hooks** for state and effects
+- **Extract custom hooks** for reusable logic
+- **Keep components focused** - single responsibility
+
+```typescript
+// Good
+export function TodoList() {
+  const [todos, setTodos] = useLocalStorage<TodoItem[]>("better-home-todos", []);
+  
+  return (
+    <div>
+      {todos.map((todo) => (
+        <TodoItem key={todo.id} todo={todo} />
+      ))}
+    </div>
+  );
+}
+```
+
+### Styling
+
+- **Use Tailwind utilities** - avoid custom CSS
+- **Use design system variables** for colors
+- **Responsive-first** - mobile to desktop
+- **Dark mode support** - test both themes
+
+```typescript
+// Good
+<div className="flex flex-col gap-2 rounded-lg bg-card p-4 shadow-sm">
+  <h2 className="font-semibold text-foreground">Tasks</h2>
+</div>
+
+// Avoid inline styles
+<div style={{ padding: "16px", backgroundColor: "white" }}>
+```
+
+### File Organization
+
+- **Group by feature** - related files together
+- **Use index exports** sparingly
+- **Keep utilities pure** - no side effects in `/lib`
+- **Type files in `/types`** - shared type definitions
+
+## Git Hooks
+
+Better Home uses **Husky** for Git hooks:
+
+### Pre-commit Hook
+
+Automatically runs before each commit:
+
+1. Checks for staged files
+2. Runs `ultracite fix` on staged files
+3. Re-stages formatted files
+4. Preserves unstaged changes via stash
+
+<Tip>
+Set `ULTRACITE_UNSAFE=1` environment variable to enable unsafe fixes during commit.
+</Tip>
+
+### Commit-msg Hook
+
+Validates commit messages:
+
+1. Checks conventional commit format
+2. Enforces allowed types (`feat`, `fix`, `docs`, etc.)
+3. Rejects invalid commits with helpful error messages
+
+## Testing Checklist
+
+Before submitting a PR, ensure:
+
+<Tabs>
+  <Tab title="Build">
+    - [ ] Project builds without errors: `bun run build`
+    - [ ] No TypeScript errors: `bun x tsc --noEmit`
+    - [ ] Extension loads in browser successfully
+    - [ ] No console errors in DevTools
+  </Tab>
+  
+  <Tab title="Code Quality">
+    - [ ] Code passes linting: `bun run lint`
+    - [ ] All staged files formatted: `bun run fix`
+    - [ ] Commit messages follow conventional format
+    - [ ] No commented-out code or debug logs
+  </Tab>
+  
+  <Tab title="Functionality">
+    - [ ] Feature works as intended
+    - [ ] Existing features still work (no regressions)
+    - [ ] Data persists in localStorage correctly
+    - [ ] Works across different screen sizes
+  </Tab>
+  
+  <Tab title="UI/UX">
+    - [ ] Works in both light and dark themes
+    - [ ] Animations are smooth and performant
+    - [ ] Accessible (keyboard navigation, ARIA labels)
+    - [ ] Consistent with existing design system
+  </Tab>
+</Tabs>
+
+## Questions or Issues?
+
+If you have questions or run into issues:
+
+- Check the [installation troubleshooting](/installation#troubleshooting)
+- Open an [issue on GitHub](https://github.com/SatyamVyas04/better-home/issues)
+- Review existing PRs for examples
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the MIT License.
+
+---
+
+Thank you for contributing to Better Home! Your efforts help make this extension better for everyone.

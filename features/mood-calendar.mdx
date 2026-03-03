@@ -1,0 +1,317 @@
+---
+title: Mood Calendar
+description: Track your daily mood, work log, and journal entries in a visual calendar for 2026
+---
+
+The Mood Calendar provides a visual, interactive calendar for tracking your emotional state, work activities, and personal reflections throughout 2026. Color-coded days make patterns easy to spot at a glance.
+
+## Overview
+
+The calendar displays all 12 months of 2026 with clickable day cells. Each day can store a mood selection, work log, and journal entry. The interface supports two view modes: quadrimester (4-month periods) and full-year overview.
+
+### Key Capabilities
+
+- Five mood levels with distinct colors
+- Work log and journal text fields for each day
+- Quadrimester and full-year view modes
+- Toggle date numbers on/off for cleaner view
+- Visual color coding for quick pattern recognition
+- Click any day to add or edit entries
+- Persistent storage with automatic saving
+
+## Data Structure
+
+### Day Entry
+
+Each calendar day can store three types of information:
+
+```typescript src/types/calendar.ts
+export interface DayEntry {
+  mood: MoodType | null;
+  workLog: string;
+  journal: string;
+}
+```
+
+<ParamField path="mood" type="MoodType | null">
+  Selected mood for the day, or null if not set
+</ParamField>
+
+<ParamField path="workLog" type="string">
+  Text field for recording work activities and accomplishments
+</ParamField>
+
+<ParamField path="journal" type="string">
+  Text field for personal reflections and notes
+</ParamField>
+
+### Calendar Data
+
+All entries are stored in a key-value structure:
+
+```typescript src/types/calendar.ts
+export interface CalendarData {
+  [dateKey: string]: DayEntry;
+}
+```
+
+Date keys use the format `YYYY-M-D` (e.g., `2026-3-15` for March 15, 2026).
+
+## Mood Types
+
+Five mood levels with semantic names and vibrant colors:
+
+```typescript src/lib/calendar-constants.ts
+export const MOOD_COLORS = {
+  coreMemory: { color: "#00C0E8", label: "Core Memory" },
+  goodDay: { color: "#34C759", label: "A Good Day" },
+  neutral: { color: "#FFD60A", label: "Neutral" },
+  badDay: { color: "#FF8D28", label: "A Bad Day" },
+  nightmare: { color: "#FF3C30", label: "Nightmare" },
+} as const;
+
+export type MoodType = keyof typeof MOOD_COLORS;
+```
+
+<CardGroup cols={2}>
+  <Card title="Core Memory" icon="star" color="#00C0E8">
+    Exceptional days worth remembering - bright cyan
+  </Card>
+  <Card title="A Good Day" icon="smile" color="#34C759">
+    Positive experiences and productive days - green
+  </Card>
+  <Card title="Neutral" icon="minus" color="#FFD60A">
+    Ordinary days without strong feelings - yellow
+  </Card>
+  <Card title="A Bad Day" icon="frown" color="#FF8D28">
+    Difficult or frustrating days - orange
+  </Card>
+  <Card title="Nightmare" icon="exclamation-triangle" color="#FF3C30">
+    Very challenging days - red
+  </Card>
+</CardGroup>
+
+## View Modes
+
+The calendar supports two view modes for different use cases:
+
+### Quadrimester View
+
+Displays 4 months at a time, divided into three periods:
+
+```typescript src/lib/calendar-utils.ts
+export const QUADRIMESTERS = [
+  {
+    label: "Q1",
+    months: [0, 1, 2, 3], // Jan-Apr
+  },
+  {
+    label: "Q2",
+    months: [4, 5, 6, 7], // May-Aug
+  },
+  {
+    label: "Q3",
+    months: [8, 9, 10, 11], // Sep-Dec
+  },
+];
+```
+
+```typescript src/components/interactive-calendar.tsx
+const currentMonths = showAllYear
+  ? MONTHS_2026.map((_, i) => i)
+  : QUADRIMESTERS[currentQuadrimester].months;
+```
+
+Navigate between quadrimesters using arrow buttons in the footer.
+
+<Info>
+  Quadrimester view provides larger month grids and is better for detailed daily tracking.
+</Info>
+
+### Full Year View
+
+Displays all 12 months simultaneously in a responsive grid:
+
+- **Mobile/Portrait**: 2 columns, 6 rows
+- **Desktop/Landscape**: 4 columns, 3 rows
+
+```typescript src/components/interactive-calendar.tsx
+<motion.div
+  className={cn(
+    "m-auto flex h-full w-full flex-col place-content-center items-center justify-start gap-4 lg:grid lg:justify-center lg:gap-2",
+    showAllYear
+      ? "grid h-[250%] grid-cols-2 grid-rows-6 lg:h-full lg:grid-cols-4 lg:grid-rows-3"
+      : "wide-mode grid-cols-1 grid-rows-4 gap-y- gap-x-8 lg:grid-cols-2 lg:grid-rows-2"
+  )}
+  key={showAllYear ? "full-year" : `quad-${currentQuadrimester}`}
+>
+  {currentMonths.map((monthIndex, i) => {
+    const month = MONTHS_2026[monthIndex];
+    return (
+      <MonthGrid
+        animationDelay={i * 0.05}
+        getEntryForDate={getEntryForDate}
+        getFillColor={getFillColor}
+        handleSaveEntry={handleSaveEntry}
+        key={month.name}
+        month={month}
+        monthIndex={monthIndex}
+        showAllYear={showAllYear}
+        showNumbers={showNumbers}
+      />
+    );
+  })}
+</motion.div>
+```
+
+<Tip>
+  Toggle between views using the button in the card header. Your preference is not saved between sessions.
+</Tip>
+
+## Day Coloring
+
+Days are colored based on their entry state:
+
+```typescript src/components/interactive-calendar.tsx
+const getFillColor = (dateKey: string): string => {
+  const entry = getEntryForDate(dateKey);
+  if (entry.mood) {
+    return MOOD_COLORS[entry.mood].color;
+  }
+  if (entry.workLog || entry.journal) {
+    return "var(--muted)"; // Color for entries without mood
+  }
+  return "var(--muted)";
+};
+```
+
+**Color Logic:**
+1. If mood is set: Use the mood's color
+2. If work log or journal exists (no mood): Use muted gray
+3. If no entry exists: Use muted gray (default)
+
+This allows you to quickly identify days with entries and see mood patterns.
+
+## Date Number Toggle
+
+Show or hide date numbers for a cleaner visual:
+
+```typescript src/components/interactive-calendar.tsx
+const [showNumbers, setShowNumbers] = useLocalStorage(
+  "mood-calendar-show-numbers",
+  true
+);
+
+<Button
+  aria-label={
+    showNumbers ? "Hide date numbers" : "Show date numbers"
+  }
+  className="size-6 p-0"
+  onClick={() => setShowNumbers(!showNumbers)}
+  size="sm"
+  title={showNumbers ? "Hide numbers" : "Show numbers"}
+  variant={showNumbers ? "default" : "outline"}
+>
+  <IconMenu2 className="size-4" />
+</Button>
+```
+
+The preference is saved to localStorage and persists across sessions.
+
+<Info>
+  Hiding numbers creates a pure color-based view that emphasizes mood patterns over specific dates.
+</Info>
+
+## Editing Entries
+
+Click any day cell to open a popover with input fields:
+
+```typescript src/components/interactive-calendar.tsx
+const { getEntryForDate, handleSaveEntry } = useCalendarData();
+
+<MonthGrid
+  animationDelay={i * 0.05}
+  getEntryForDate={getEntryForDate}
+  getFillColor={getFillColor}
+  handleSaveEntry={handleSaveEntry}
+  key={month.name}
+  month={month}
+  monthIndex={monthIndex}
+  showAllYear={showAllYear}
+  showNumbers={showNumbers}
+/>
+```
+
+### Month Grid Props
+
+```typescript src/types/calendar.ts
+export interface MonthGridProps {
+  month: {
+    name: string;
+    days: number;
+    startDay: number;
+  };
+  monthIndex: number;
+  getEntryForDate: (dateKey: string) => DayEntry;
+  getFillColor: (dateKey: string) => string;
+  handleSaveEntry: (dateKey: string, entry: DayEntry) => void;
+  showAllYear: boolean;
+  showNumbers: boolean;
+  animationDelay?: number;
+}
+```
+
+The `MonthGrid` component handles rendering individual day cells and manages the popover for each date.
+
+## Storage
+
+Calendar data and preferences are persisted to localStorage:
+
+- **Calendar Data**: `mood-calendar-2026-data` - Object mapping date keys to DayEntry
+- **Show Numbers**: `mood-calendar-show-numbers` - Boolean toggle preference
+
+## Animations
+
+Smooth transitions between view modes:
+
+```typescript src/components/interactive-calendar.tsx
+<AnimatePresence mode="wait">
+  <motion.div
+    animate={{ filter: "blur(0px)", opacity: 1 }}
+    exit={{ filter: "blur(4px)", opacity: 0 }}
+    initial={{ filter: "blur(4px)", opacity: 0 }}
+    key={showAllYear ? "full-year" : `quad-${currentQuadrimester}`}
+    transition={{ duration: 0.2, ease: "easeOut" }}
+  >
+    {/* Month grids */}
+  </motion.div>
+</AnimatePresence>
+```
+
+Each month grid also has a staggered entrance animation:
+
+```typescript
+animationDelay={i * 0.05}
+```
+
+This creates a cascading effect when switching views or quadrimesters.
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Mood Pattern Recognition">
+    Track your emotional trends over weeks and months. The color-coded visualization makes it easy to spot patterns related to specific days of the week, seasons, or events.
+  </Accordion>
+
+  <Accordion title="Work Activity Logging">
+    Record daily accomplishments in the work log field. Review your productivity patterns and see which days were most productive.
+  </Accordion>
+
+  <Accordion title="Personal Journaling">
+    Use the journal field for reflections, gratitude notes, or significant events. Having mood and journal together provides context for your entries.
+  </Accordion>
+
+  <Accordion title="Habit Correlation">
+    Cross-reference mood data with other habits tracked elsewhere to discover what activities or routines correlate with better days.
+  </Accordion>
+</AccordionGroup>

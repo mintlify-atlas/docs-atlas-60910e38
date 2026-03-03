@@ -1,0 +1,262 @@
+---
+title: Tasks
+description: Manage your daily tasks with a minimal, keyboard-friendly todo list
+---
+
+The tasks feature provides a clean, distraction-free todo list with powerful sorting, filtering, and organization capabilities. All tasks are stored locally in your browser.
+
+## Overview
+
+Tasks appear as a card on your new tab page, displaying your todo items with completion tracking. The interface supports both mouse and keyboard interactions for quick task management.
+
+### Key Capabilities
+
+- Create and manage tasks with completion tracking
+- Mark tasks as important with star indicators
+- Drag-and-drop reordering for manual organization
+- Multiple sorting modes (manual, oldest first, newest first)
+- Filter by completion status or importance
+- Hold-to-delete interaction for safe task removal
+- Right-click context menus for quick actions
+- Persistent storage with automatic saving
+
+## Task Structure
+
+Each task contains the following properties:
+
+```typescript src/types/todo.ts
+export interface Todo {
+  id: string;
+  text: string;
+  completed: boolean;
+  important: boolean;
+  createdAt: number;
+}
+```
+
+<ParamField path="id" type="string">
+  Unique identifier generated using `crypto.randomUUID()`
+</ParamField>
+
+<ParamField path="text" type="string">
+  Task description, automatically converted to lowercase
+</ParamField>
+
+<ParamField path="completed" type="boolean">
+  Completion status, toggled via checkbox
+</ParamField>
+
+<ParamField path="important" type="boolean">
+  Priority flag, displayed with star icon when true
+</ParamField>
+
+<ParamField path="createdAt" type="number">
+  Unix timestamp for creation time, used for date-based sorting
+</ParamField>
+
+## Creating Tasks
+
+Add new tasks using the input field and add button:
+
+```typescript src/components/todo-list.tsx
+const addTodo = () => {
+  const trimmedText = newTodo.trim();
+  if (!trimmedText) {
+    return;
+  }
+
+  const todo: Todo = {
+    id: crypto.randomUUID(),
+    text: trimmedText.toLowerCase(),
+    completed: false,
+    important: false,
+    createdAt: Date.now(),
+  };
+
+  setTodos((prev) => [todo, ...prev]);
+  setNewTodo("");
+};
+```
+
+New tasks are added to the top of the list and automatically saved to localStorage under the key `better-home-todos`.
+
+<Info>
+  Press **Enter** in the input field to quickly add a task without clicking the button.
+</Info>
+
+## Sorting Modes
+
+Tasks support three sorting modes accessible via right-click context menu:
+
+```typescript src/types/todo.ts
+export type SortMode = "manual" | "oldest" | "newest";
+```
+
+<Tabs>
+  <Tab title="Manual Order">
+    Default mode. Drag and drop tasks to arrange them in your preferred order. The grip handle on the left of each task enables reordering.
+
+    ```typescript src/components/todo-list.tsx
+    const handleReorder = (reorderedTodos: Todo[]) => {
+      setSortMode("manual");
+
+      const hasActiveFilters = filters.hideCompleted || filters.importantOnly;
+      if (!hasActiveFilters) {
+        setTodos(reorderedTodos);
+        return;
+      }
+
+      setTodos((prev) => mergeReorderedWithHidden(reorderedTodos, prev, filters));
+    };
+    ```
+
+    <Note>
+      Drag-and-drop automatically switches to manual mode and intelligently merges reordered visible tasks with hidden filtered tasks.
+    </Note>
+  </Tab>
+
+  <Tab title="Oldest First">
+    Sort tasks by creation date, oldest at the top. Useful for working through tasks in chronological order.
+
+    ```typescript src/lib/todo-utils.ts
+    if (sortMode === "oldest") {
+      return [...todos].sort((a, b) => a.createdAt - b.createdAt);
+    }
+    ```
+  </Tab>
+
+  <Tab title="Newest First">
+    Sort tasks by creation date, newest at the top. Keeps recently added tasks visible and accessible.
+
+    ```typescript src/lib/todo-utils.ts
+    if (sortMode === "newest") {
+      return [...todos].sort((a, b) => b.createdAt - a.createdAt);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Filtering Options
+
+Filter tasks using the right-click context menu on the card:
+
+```typescript src/types/todo.ts
+export interface TodoFilters {
+  hideCompleted: boolean;
+  importantOnly: boolean;
+}
+```
+
+### Hide Completed
+
+Hide tasks that have been marked as completed, keeping your view focused on active work:
+
+```typescript src/lib/todo-utils.ts
+if (filters.hideCompleted) {
+  result = result.filter((todo) => !todo.completed);
+}
+```
+
+### Show Important Only
+
+Display only tasks marked as important (starred):
+
+```typescript src/lib/todo-utils.ts
+if (filters.importantOnly) {
+  result = result.filter((todo) => todo.important);
+}
+```
+
+Filters can be combined to show only important incomplete tasks.
+
+## Task Interactions
+
+### Toggle Completion
+
+Click the checkbox or use the right-click context menu:
+
+```typescript src/components/todo-list.tsx
+const toggleTodo = (id: string) => {
+  setTodos((prev) =>
+    prev.map((todo) =>
+      todo.id === id ? { ...todo, completed: !todo.completed } : todo
+    )
+  );
+};
+```
+
+Completed tasks display with strikethrough text and muted color.
+
+### Mark as Important
+
+Use the context menu to toggle the important flag:
+
+```typescript src/components/todo-list.tsx
+const toggleImportant = (id: string) => {
+  setTodos((prev) =>
+    prev.map((todo) =>
+      todo.id === id ? { ...todo, important: !todo.important } : todo
+    )
+  );
+};
+```
+
+Important tasks show a filled yellow star icon.
+
+### Delete Tasks
+
+Hover over a task and hold down the delete button for 1.5 seconds:
+
+```typescript src/lib/todo-utils.ts
+export const DELETE_HOLD_DURATION = 1500;
+```
+
+```typescript src/components/todo-list.tsx
+const handleDeleteMouseDown = (id: string) => {
+  setHoldingDelete(id);
+  holdTimeoutRef.current = window.setTimeout(() => {
+    deleteTodo(id);
+  }, DELETE_HOLD_DURATION);
+};
+```
+
+A visual progress indicator fills the delete button during the hold duration to prevent accidental deletions.
+
+<Warning>
+  Deleted tasks cannot be recovered. Use the [backup feature](/features/backup-restore) to create regular backups of your data.
+</Warning>
+
+## Storage
+
+Tasks and preferences are persisted to localStorage:
+
+- **Tasks**: `better-home-todos` - Array of Todo objects
+- **Sort Mode**: `better-home-todo-sort` - Current sorting preference
+- **Filters**: `better-home-todo-filters` - Active filter settings
+
+## UI States
+
+### Progress Indicator
+
+The card header shows completion progress:
+
+```tsx src/components/todo-list.tsx
+const completedCount = todos.filter((t) => t.completed).length;
+const totalCount = todos.length;
+
+// Displays as: "3/10" in the header
+{totalCount > 0 && (
+  <span className="font-normal text-muted-foreground text-xs">
+    {completedCount}/{totalCount}
+  </span>
+)}
+```
+
+### Empty States
+
+The component displays different messages based on context:
+
+- **No tasks yet**: When the list is empty and no filters are active
+- **No matching tasks**: When filters exclude all tasks
+
+Both states include helpful hints about right-click functionality.

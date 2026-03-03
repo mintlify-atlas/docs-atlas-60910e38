@@ -1,0 +1,294 @@
+---
+title: InteractiveCalendar
+description: Year-long mood tracking calendar with quadrimester navigation and local storage persistence
+---
+
+## Overview
+
+The `InteractiveCalendar` component displays a full-year 2026 calendar grid for tracking daily moods, work logs, and journal entries. It supports quadrimester and full-year views with interactive day cells that open popovers for data entry.
+
+## Props
+
+<ParamField path="className" type="string">
+  Optional CSS class name to apply to the root container element.
+</ParamField>
+
+## Usage
+
+### Basic Implementation
+
+```tsx
+import { InteractiveCalendar } from "@/components/interactive-calendar";
+
+function App() {
+  return (
+    <div className="flex min-h-0 flex-1">
+      <InteractiveCalendar />
+    </div>
+  );
+}
+```
+
+Example from `src/app.tsx:122`:
+
+```tsx
+calendar: (
+  <div className="flex min-h-0 flex-1">
+    <InteractiveCalendar />
+  </div>
+),
+```
+
+### With Custom Styling
+
+```tsx
+<InteractiveCalendar className="custom-calendar" />
+```
+
+## State Management
+
+The component manages multiple pieces of state:
+
+### Calendar Data
+
+From `src/hooks/use-calendar-data.ts:7`:
+
+```typescript
+const { getEntryForDate, handleSaveEntry } = useCalendarData();
+
+// Internal hook implementation:
+const [calendarData, setCalendarData] = useLocalStorage<CalendarData>(
+  "mood-calendar-2026-data",
+  {}
+);
+```
+
+### View State
+
+```typescript
+const [currentQuadrimester, setCurrentQuadrimester] = useState(0);
+const [showAllYear, setShowAllYear] = useState(false);
+const [showNumbers, setShowNumbers] = useLocalStorage(
+  "mood-calendar-show-numbers",
+  true
+);
+```
+
+## Types and Interfaces
+
+### InteractiveCalendarProps
+
+From `src/types/calendar.ts:21`:
+
+```typescript
+interface InteractiveCalendarProps {
+  className?: string;
+}
+```
+
+### DayEntry
+
+From `src/types/calendar.ts:5`:
+
+```typescript
+interface DayEntry {
+  mood: MoodType | null;
+  workLog: string;
+  journal: string;
+}
+```
+
+### CalendarData
+
+From `src/types/calendar.ts:11`:
+
+```typescript
+interface CalendarData {
+  [dateKey: string]: DayEntry;
+}
+```
+
+### MonthGridProps
+
+From `src/types/calendar.ts:38`:
+
+```typescript
+interface MonthGridProps {
+  month: {
+    name: string;
+    days: number;
+    startDay: number;
+  };
+  monthIndex: number;
+  getEntryForDate: (dateKey: string) => DayEntry;
+  getFillColor: (dateKey: string) => string;
+  handleSaveEntry: (dateKey: string, entry: DayEntry) => void;
+  showAllYear: boolean;
+  showNumbers: boolean;
+  animationDelay?: number;
+}
+```
+
+## Features
+
+### View Modes
+
+#### Quadrimester View (Default)
+
+Displays 4 months at a time:
+
+- **Q1**: January - April
+- **Q2**: May - August  
+- **Q3**: September - December
+
+Navigation buttons in the footer allow cycling through quadrimesters.
+
+#### Full Year View
+
+Displays all 12 months in a grid layout. Toggle via the "full year" button in the header.
+
+### Color Coding
+
+From `src/components/interactive-calendar.tsx:33`:
+
+```typescript
+const getFillColor = (dateKey: string): string => {
+  const entry = getEntryForDate(dateKey);
+  if (entry.mood) {
+    return MOOD_COLORS[entry.mood].color;
+  }
+  if (entry.workLog || entry.journal) {
+    return "var(--muted)"; // Color for entries without mood
+  }
+  return "var(--muted)";
+};
+```
+
+Mood colors are defined in `@/lib/calendar-constants` and map `MoodType` values to CSS color variables.
+
+### Date Numbers Toggle
+
+The menu button in the header toggles visibility of date numbers within calendar cells. This preference persists in local storage.
+
+### Month Grid Rendering
+
+From `src/components/interactive-calendar.tsx:102`:
+
+```tsx
+{currentMonths.map((monthIndex, i) => {
+  const month = MONTHS_2026[monthIndex];
+  return (
+    <MonthGrid
+      animationDelay={i * 0.05}
+      getEntryForDate={getEntryForDate}
+      getFillColor={getFillColor}
+      handleSaveEntry={handleSaveEntry}
+      key={month.name}
+      month={month}
+      monthIndex={monthIndex}
+      showAllYear={showAllYear}
+      showNumbers={showNumbers}
+    />
+  );
+})}
+```
+
+## Animation
+
+The calendar view transitions are animated using Framer Motion:
+
+```typescript
+initial={{ filter: "blur(4px)", opacity: 0 }}
+animate={{ filter: "blur(0px)", opacity: 1 }}
+exit={{ filter: "blur(4px)", opacity: 0 }}
+transition={{ duration: 0.2, ease: "easeOut" }}
+```
+
+Each month grid has a staggered animation delay based on its index: `i * 0.05` seconds.
+
+## Layout
+
+The component uses responsive grid layouts:
+
+### Quadrimester View
+
+```typescript
+className="wide-mode grid-cols-1 grid-rows-4 gap-y- gap-x-8 lg:grid-cols-2 lg:grid-rows-2"
+```
+
+### Full Year View
+
+```typescript
+className="grid h-[250%] grid-cols-2 grid-rows-6 lg:h-full lg:grid-cols-4 lg:grid-rows-3"
+```
+
+## Navigation
+
+From `src/components/interactive-calendar.tsx:122`:
+
+```tsx
+<CardFooter className="flex items-center justify-end px-4 pt-2">
+  {!showAllYear && (
+    <div className="flex items-center gap-1">
+      <Button onClick={handlePrevQuadrimester}>
+        <IconCaretLeftFilled className="size-4" />
+      </Button>
+      <span className="min-w-16 text-center font-medium text-xs">
+        {QUADRIMESTERS[currentQuadrimester].label}
+      </span>
+      <Button onClick={handleNextQuadrimester}>
+        <IconCaretRightFilled className="size-4" />
+      </Button>
+    </div>
+  )}
+</CardFooter>
+```
+
+## Data Persistence
+
+The `useCalendarData` hook provides two key functions:
+
+### getEntryForDate
+
+```typescript
+const getEntryForDate = useCallback(
+  (dateKey: string): DayEntry => {
+    return calendarData[dateKey] ?? { mood: null, workLog: "", journal: "" };
+  },
+  [calendarData]
+);
+```
+
+### handleSaveEntry
+
+```typescript
+const handleSaveEntry = useCallback(
+  (dateKey: string, entry: DayEntry) => {
+    setCalendarData((prev) => ({
+      ...prev,
+      [dateKey]: entry,
+    }));
+  },
+  [setCalendarData]
+);
+```
+
+All data is automatically persisted to `localStorage` with the key `"mood-calendar-2026-data"`.
+
+## Dependencies
+
+- `motion/react` - View transition animations
+- `@tabler/icons-react` - Navigation icons
+- `@/hooks/use-calendar-data` - Data management and persistence
+- `@/hooks/use-local-storage` - Settings persistence
+- `@/lib/calendar-constants` - Mood type definitions and colors
+- `@/lib/calendar-utils` - Month data and quadrimester configuration
+- `@/components/month-grid` - Individual month rendering
+- `@/components/ui/*` - Shadcn UI components
+
+## Related Components
+
+- [TodoList](/components/todo-list) - Companion widget for task management
+- [QuickLinks](/components/quick-links) - Companion widget for link management
+- [Mood Calendar Feature](/features/mood-calendar) - User guide for the mood calendar
+- [useCalendarData Hook](/components/hooks/use-calendar-data) - Hook for calendar state management

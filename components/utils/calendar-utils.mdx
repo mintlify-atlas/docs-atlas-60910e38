@@ -1,0 +1,314 @@
+---
+title: "Calendar Utilities"
+description: "Utilities for calendar data generation, formatting, and layout calculations"
+---
+
+## Overview
+
+The calendar utilities module provides functions and constants for working with the 2026 mood calendar. It includes date key generation, calendar data structures, and layout calculations for both standard and quadrimester views.
+
+## Types
+
+### DateCell
+
+```typescript
+interface DateCell {
+  day: number;
+  week: number;
+  dayOfWeek: number; // 0-6 (Monday-Sunday)
+}
+```
+
+Represents a single day in the calendar grid with its position information.
+
+## Functions
+
+### getDateKey
+
+```typescript
+function getDateKey(year: number, month: number, day: number): string
+```
+
+Generates a unique date key for storing calendar entries.
+
+**Parameters:**
+- `year` - The year (e.g., 2026)
+- `month` - The month (1-12)
+- `day` - The day of the month (1-31)
+
+**Returns:** `string` - A formatted date key (e.g., "2026-3-15")
+
+**Example:**
+
+```tsx
+const dateKey = getDateKey(2026, 3, 15);
+// Returns: "2026-3-15"
+```
+
+### getContrastColor
+
+```typescript
+function getContrastColor(moodKey: string): string
+```
+
+Determines the appropriate text color for a given mood background.
+
+**Parameters:**
+- `moodKey` - The mood identifier
+
+**Returns:** `"black"` for neutral moods, `"white"` for all others
+
+**Example:**
+
+```tsx
+import { getContrastColor } from "@/lib/calendar-utils";
+import { MOOD_COLORS } from "@/lib/calendar-constants";
+
+function MoodLabel({ moodKey }: { moodKey: string }) {
+  return (
+    <div
+      style={{
+        backgroundColor: MOOD_COLORS[moodKey].color,
+        color: getContrastColor(moodKey),
+      }}
+    >
+      {MOOD_COLORS[moodKey].label}
+    </div>
+  );
+}
+```
+
+### generateCalendarData
+
+```typescript
+function generateCalendarData(
+  startDay: number,
+  daysInMonth: number
+): DateCell[]
+```
+
+Generates an array of date cells for a month's calendar grid.
+
+**Parameters:**
+- `startDay` - Day of week the month starts on (0-6, Monday-Sunday)
+- `daysInMonth` - Total days in the month (28-31)
+
+**Returns:** `DateCell[]` - Array of date cell objects with position data
+
+**Example:**
+
+```tsx
+import { generateCalendarData, MONTHS_2026 } from "@/lib/calendar-utils";
+
+function MonthGrid({ monthIndex }: { monthIndex: number }) {
+  const month = MONTHS_2026[monthIndex];
+  const cells = generateCalendarData(month.startDay, month.days);
+
+  return (
+    <div>
+      {cells.map((cell) => (
+        <div key={cell.day}>
+          Day {cell.day}, Week {cell.week}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Constants
+
+### Day Labels
+
+```typescript
+const DAY_LABELS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+```
+
+Abbreviated day names for calendar headers.
+
+### 2026 Month Data
+
+```typescript
+const MONTHS_2026 = [
+  { name: "JANUARY", days: 31, startDay: 3 },
+  { name: "FEBRUARY", days: 28, startDay: 6 },
+  { name: "MARCH", days: 31, startDay: 6 },
+  { name: "APRIL", days: 30, startDay: 2 },
+  { name: "MAY", days: 31, startDay: 4 },
+  { name: "JUNE", days: 30, startDay: 0 },
+  { name: "JULY", days: 31, startDay: 2 },
+  { name: "AUGUST", days: 31, startDay: 5 },
+  { name: "SEPTEMBER", days: 30, startDay: 1 },
+  { name: "OCTOBER", days: 31, startDay: 3 },
+  { name: "NOVEMBER", days: 30, startDay: 6 },
+  { name: "DECEMBER", days: 31, startDay: 1 },
+];
+```
+
+Complete month definitions for 2026 with:
+- `name` - Full month name in uppercase
+- `days` - Number of days in the month
+- `startDay` - Day of week (0-6) the month starts on
+
+**Example:**
+
+```tsx
+import { MONTHS_2026 } from "@/lib/calendar-utils";
+
+function YearCalendar() {
+  return (
+    <div>
+      {MONTHS_2026.map((month, index) => (
+        <div key={month.name}>
+          <h2>{month.name}</h2>
+          <p>{month.days} days, starts on day {month.startDay}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+### Quadrimesters
+
+```typescript
+const QUADRIMESTERS = [
+  { label: "Jan - Apr", months: [0, 1, 2, 3] },
+  { label: "May - Aug", months: [4, 5, 6, 7] },
+  { label: "Sep - Dec", months: [8, 9, 10, 11] },
+];
+```
+
+Groups months into three 4-month periods for compact calendar views.
+
+**Example:**
+
+```tsx
+import { QUADRIMESTERS, MONTHS_2026 } from "@/lib/calendar-utils";
+
+function QuadrimesterView() {
+  return (
+    <div>
+      {QUADRIMESTERS.map((quad) => (
+        <div key={quad.label}>
+          <h3>{quad.label}</h3>
+          {quad.months.map((monthIdx) => (
+            <div key={monthIdx}>{MONTHS_2026[monthIdx].name}</div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Layout Constants
+
+### Standard Calendar Layout
+
+```typescript
+const CELL_SIZE = 20;          // Cell size in pixels
+const CELL_GAP = 4;            // Gap between cells
+const MONTH_GAP = 28;          // Gap between months
+const DAY_LABEL_WIDTH = 28;    // Width of day labels
+```
+
+### Quadrimester Layout
+
+```typescript
+const QUAD_CELL_SIZE = 36;         // Larger cell size
+const QUAD_CELL_GAP = 6;           // Larger gap
+const QUAD_DAY_LABEL_WIDTH = 38;   // Wider labels
+```
+
+### Font Sizes
+
+```typescript
+const CELL_FONT_SIZE = 8;          // Standard view
+const QUAD_CELL_FONT_SIZE = 14;    // Quadrimester view
+const LABEL_FONT_SIZE = 7;         // Standard labels
+const QUAD_LABEL_FONT_SIZE = 11;   // Quad labels
+```
+
+### SVG Layout
+
+```typescript
+const SVG_HEIGHT_PADDING = 20;     // Vertical padding for SVG
+```
+
+**Example:**
+
+```tsx
+import {
+  CELL_SIZE,
+  CELL_GAP,
+  CELL_FONT_SIZE,
+} from "@/lib/calendar-utils";
+
+function CalendarCell({ day }: { day: number }) {
+  return (
+    <div
+      style={{
+        width: CELL_SIZE,
+        height: CELL_SIZE,
+        fontSize: CELL_FONT_SIZE,
+        margin: CELL_GAP / 2,
+      }}
+    >
+      {day}
+    </div>
+  );
+}
+```
+
+## Complete Example
+
+Here's a complete month calendar implementation:
+
+```tsx
+import {
+  generateCalendarData,
+  MONTHS_2026,
+  DAY_LABELS,
+  CELL_SIZE,
+  CELL_GAP,
+} from "@/lib/calendar-utils";
+
+function MonthCalendar({ monthIndex }: { monthIndex: number }) {
+  const month = MONTHS_2026[monthIndex];
+  const cells = generateCalendarData(month.startDay, month.days);
+
+  return (
+    <div>
+      <h2>{month.name}</h2>
+      <div style={{ display: "flex", gap: CELL_GAP }}>
+        {DAY_LABELS.map((label) => (
+          <div key={label} style={{ width: CELL_SIZE }}>
+            {label}
+          </div>
+        ))}
+      </div>
+      <div>
+        {cells.map((cell) => (
+          <div
+            key={cell.day}
+            style={{
+              width: CELL_SIZE,
+              height: CELL_SIZE,
+              gridColumn: cell.dayOfWeek + 1,
+              gridRow: cell.week + 1,
+            }}
+          >
+            {cell.day}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+## Related
+
+- [Interactive Calendar](/components/interactive-calendar) - Uses calendar utilities for layout
+- [Mood Calendar Feature](/features/mood-calendar) - User guide for the mood calendar

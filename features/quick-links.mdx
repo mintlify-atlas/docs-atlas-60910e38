@@ -1,0 +1,357 @@
+---
+title: Quick Links
+description: Access your favorite websites instantly with favicon-based bookmarks
+---
+
+Quick Links provides a visual bookmark system with automatic favicon fetching and two display modes. Add any URL and access it with a single click from your new tab page.
+
+## Overview
+
+The Quick Links feature displays your saved websites as clickable icons with favicons, offering both compact grid and expanded list views. All links are stored locally and synced across your browser sessions.
+
+### Key Capabilities
+
+- Add links by URL with automatic title extraction
+- Automatic favicon fetching from Google's favicon service
+- Two view modes: compact grid and expanded list
+- Hover-to-delete interaction in both modes
+- URL normalization and validation
+- Opens links in new tabs with security attributes
+
+## Link Structure
+
+Each quick link contains the following properties:
+
+```typescript src/components/quick-links.tsx
+interface QuickLink {
+  id: string;
+  title: string;
+  url: string;
+  favicon: string;
+}
+```
+
+<ParamField path="id" type="string">
+  Unique identifier generated using `crypto.randomUUID()`
+</ParamField>
+
+<ParamField path="title" type="string">
+  Display name extracted from the URL hostname, automatically lowercased
+</ParamField>
+
+<ParamField path="url" type="string">
+  Normalized and validated URL with https:// protocol
+</ParamField>
+
+<ParamField path="favicon" type="string">
+  Google Favicon Service URL for the site's icon
+</ParamField>
+
+## Adding Links
+
+Links are added through URL normalization and validation:
+
+```typescript src/components/quick-links.tsx
+const addLink = () => {
+  const normalizedUrl = normalizeUrl(newUrl);
+  if (!normalizedUrl) {
+    return;
+  }
+
+  if (!isValidUrl(normalizedUrl)) {
+    return;
+  }
+
+  const link: QuickLink = {
+    id: crypto.randomUUID(),
+    title: extractTitle(normalizedUrl),
+    url: normalizedUrl,
+    favicon: getFaviconUrl(normalizedUrl),
+  };
+
+  setLinks((prev) => [...prev, link]);
+  setNewUrl("");
+};
+```
+
+<Info>
+  Press **Enter** in the input field to quickly add a link without clicking the add button.
+</Info>
+
+## URL Processing
+
+The extension includes utility functions for URL handling:
+
+### URL Normalization
+
+Automatically adds https:// protocol if missing:
+
+```typescript src/lib/url-utils.ts
+const HTTPS_REGEX = /^https?:\/\//i;
+
+export function normalizeUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  if (!HTTPS_REGEX.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+
+  return trimmed;
+}
+```
+
+<Tabs>
+  <Tab title="Examples">
+    - `github.com` → `https://github.com`
+    - `www.google.com` → `https://www.google.com`
+    - `http://example.com` → `http://example.com` (preserved)
+  </Tab>
+</Tabs>
+
+### Title Extraction
+
+Extracts a clean title from the hostname:
+
+```typescript src/lib/url-utils.ts
+const WWW_REGEX = /^www\./;
+
+export function extractTitle(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.replace(WWW_REGEX, "");
+    return hostname.toLowerCase();
+  } catch {
+    return url.toLowerCase();
+  }
+}
+```
+
+<Tabs>
+  <Tab title="Examples">
+    - `https://github.com` → `github.com`
+    - `https://www.example.com` → `example.com`
+    - `https://mail.google.com` → `mail.google.com`
+  </Tab>
+</Tabs>
+
+### Favicon Fetching
+
+Uses Google's Favicon Service for high-quality icons:
+
+```typescript src/lib/url-utils.ts
+export function getFaviconUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
+  } catch {
+    return "";
+  }
+}
+```
+
+The service returns 64x64 pixel favicons for crisp display on high-DPI screens.
+
+### URL Validation
+
+Validates URLs before saving:
+
+```typescript src/lib/url-utils.ts
+export function isValidUrl(url: string): boolean {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
+```
+
+Invalid URLs are silently rejected, preventing broken links.
+
+## Display Modes
+
+Quick Links supports two view modes controlled by the `expanded` prop:
+
+### Grid View (Compact)
+
+Default mode showing icon-only links in a responsive grid:
+
+```typescript src/components/quick-links.tsx
+<div className="grid grid-cols-7 gap-1.5 sm:grid-cols-11 md:grid-cols-15 lg:grid-cols-7">
+  <AnimatePresence mode="popLayout">
+    {links.map((link) => (
+      <motion.div
+        animate={{ filter: "blur(0px)", opacity: 1, scale: 1 }}
+        exit={{ filter: "blur(4px)", opacity: 0, scale: 0.9 }}
+        initial={{ filter: "blur(4px)", opacity: 0, scale: 0.5 }}
+        key={link.id}
+        layout
+        transition={{ duration: 0.3, ease: "easeOut" }}
+      >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="group relative w-fit">
+              <a
+                className="flex size-8 items-center justify-center rounded-md border border-border/50 bg-background transition-all hover:border-border hover:bg-accent/30"
+                href={link.url}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                {link.favicon ? (
+                  <img
+                    alt={link.title}
+                    className="size-4"
+                    height={16}
+                    loading="lazy"
+                    src={link.favicon}
+                    width={16}
+                  />
+                ) : (
+                  <IconExternalLink className="size-4 text-muted-foreground" />
+                )}
+              </a>
+              {/* Delete button appears on hover */}
+            </div>
+          </TooltipTrigger>
+        </Tooltip>
+      </motion.div>
+    ))}
+  </AnimatePresence>
+</div>
+```
+
+**Grid Responsiveness:**
+- 7 columns on mobile and large desktop
+- 11 columns on small tablets
+- 15 columns on medium tablets
+
+### List View (Expanded)
+
+Expanded mode with titles and larger touch targets:
+
+```typescript src/components/quick-links.tsx
+<ScrollArea className="min-h-0 flex-1">
+  <div className="flex min-h-full flex-col space-y-0.5 pr-0">
+    <AnimatePresence mode="popLayout">
+      {links.map((link) => (
+        <motion.a
+          animate={{ filter: "blur(0px)", opacity: 1, x: 0, scale: 1 }}
+          className="group flex items-center gap-2 rounded-md border border-border/50 px-1.5 py-1 transition-colors hover:bg-accent/30"
+          exit={{
+            filter: "blur(4px)",
+            opacity: 0,
+            x: 10,
+            scale: 0.95,
+          }}
+          href={link.url}
+          initial={{
+            filter: "blur(4px)",
+            opacity: 0,
+            x: 10,
+            scale: 0.95,
+          }}
+          key={link.id}
+          layout
+          rel="noopener noreferrer"
+          target="_blank"
+          transition={{ duration: 0.3, ease: "easeOut" }}
+        >
+          {link.favicon ? (
+            <img
+              alt={link.title}
+              className="size-4 shrink-0"
+              height={16}
+              loading="lazy"
+              src={link.favicon}
+              width={16}
+            />
+          ) : (
+            <IconExternalLink className="size-4 shrink-0 text-muted-foreground" />
+          )}
+          <span className="flex-1 truncate text-xs">{link.title}</span>
+          {/* Delete button appears on hover */}
+        </motion.a>
+      ))}
+    </AnimatePresence>
+  </div>
+</ScrollArea>
+```
+
+List view includes scrollable area for many links and shows full titles.
+
+## Deleting Links
+
+Both view modes support hover-to-delete:
+
+### Grid View Delete Button
+
+```typescript src/components/quick-links.tsx
+<button
+  className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-destructive text-white opacity-0 transition-opacity hover:bg-destructive/90 group-hover:opacity-100"
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    deleteLink(link.id);
+  }}
+  type="button"
+>
+  <IconX className="size-2" />
+</button>
+```
+
+A small red X button appears in the top-right corner on hover.
+
+### List View Delete Button
+
+```typescript src/components/quick-links.tsx
+<Button
+  className="size-6 opacity-0 transition-opacity group-hover:opacity-100"
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    deleteLink(link.id);
+  }}
+  size="icon-sm"
+  variant="ghost"
+>
+  <IconTrash className="size-3.5 text-destructive" />
+</Button>
+```
+
+Trash icon appears on the right side when hovering over the row.
+
+## Storage
+
+Quick Links are persisted to localStorage:
+
+- **Key**: `better-home-quick-links`
+- **Type**: Array of QuickLink objects
+- **Default**: Single GitHub link as example
+
+## Security
+
+All external links open with security attributes:
+
+```typescript
+rel="noopener noreferrer"
+target="_blank"
+```
+
+- `noopener`: Prevents the new page from accessing `window.opener`
+- `noreferrer`: Prevents the browser from sending the referrer header
+- `target="_blank"`: Opens link in new tab
+
+## Animations
+
+Smooth Framer Motion animations for all interactions:
+
+- **Add**: Fade in with scale from 0.5 (grid) or 0.95 (list)
+- **Remove**: Fade out with blur effect
+- **Layout**: Automatic reflow when items are added/removed
+
+<Tip>
+  The `AnimatePresence` mode="popLayout" ensures smooth transitions even when multiple links are added or removed in quick succession.
+</Tip>

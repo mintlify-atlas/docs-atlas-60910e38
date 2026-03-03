@@ -1,0 +1,246 @@
+---
+title: Installation
+description: Step-by-step guide to install Better Home in Chrome, Edge, Brave, and other Chromium-based browsers.
+---
+
+# Installation Guide
+
+Better Home is built from source and loaded as an unpacked extension. This guide will walk you through the installation process for all supported browsers.
+
+## Prerequisites
+
+This project uses **[Bun](https://bun.sh)** as the package manager. You'll need to install it before proceeding.
+
+<Tip>
+Bun is a fast, all-in-one JavaScript runtime and package manager. It's significantly faster than npm or yarn.
+</Tip>
+
+<Tabs>
+  <Tab title="macOS / Linux / WSL">
+    ```bash
+    curl -fsSL https://bun.sh/install | bash
+    ```
+  </Tab>
+  <Tab title="Windows (PowerShell)">
+    ```powershell
+    powershell -c "irm bun.sh/install.ps1 | iex"
+    ```
+  </Tab>
+  <Tab title="Via npm">
+    ```bash
+    npm install -g bun
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+After installation, restart your terminal and verify with `bun --version`.
+</Note>
+
+## Build from Source
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/SatyamVyas04/better-home.git
+    cd better-home
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    bun install
+    ```
+  </Step>
+
+  <Step title="Build the extension">
+    ```bash
+    bun run build
+    ```
+    
+    The production build outputs to the `dist/` folder. This is what you'll load in your browser.
+  </Step>
+</Steps>
+
+## Install in Your Browser
+
+Better Home is compatible with all Chromium-based browsers. Choose your browser below:
+
+<Tabs>
+  <Tab title="Chrome">
+    <Steps>
+      <Step title="Open Chrome extensions">
+        Navigate to `chrome://extensions` in your browser.
+      </Step>
+      
+      <Step title="Enable Developer mode">
+        Toggle **Developer mode** in the top-right corner.
+      </Step>
+      
+      <Step title="Load the extension">
+        Click **Load unpacked** and select the `dist` folder from your cloned repository.
+      </Step>
+      
+      <Step title="Open a new tab">
+        Open a new tab - welcome home!
+      </Step>
+    </Steps>
+    
+    <Warning>
+    When you first open a new tab, Chrome may display a warning about the changed new tab appearance. Select **"Keep it"** - this is the intended behavior for the extension.
+    </Warning>
+  </Tab>
+
+  <Tab title="Edge">
+    <Steps>
+      <Step title="Open Edge extensions">
+        Navigate to `edge://extensions` in your browser.
+      </Step>
+      
+      <Step title="Enable Developer mode">
+        Toggle **Developer mode** in the bottom-left corner.
+      </Step>
+      
+      <Step title="Load the extension">
+        Click **Load unpacked** and select the `dist` folder from your cloned repository.
+      </Step>
+      
+      <Step title="Open a new tab">
+        Open a new tab - welcome home!
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Brave">
+    <Steps>
+      <Step title="Open Brave extensions">
+        Navigate to `brave://extensions` in your browser.
+      </Step>
+      
+      <Step title="Enable Developer mode">
+        Toggle **Developer mode** in the top-right corner.
+      </Step>
+      
+      <Step title="Load the extension">
+        Click **Load unpacked** and select the `dist` folder from your cloned repository.
+      </Step>
+      
+      <Step title="Open a new tab">
+        Open a new tab - welcome home!
+      </Step>
+    </Steps>
+    
+    <Warning>
+    When you first open a new tab, Brave may display a warning about the changed new tab appearance. Select **"Keep it"** - this is the intended behavior for the extension.
+    </Warning>
+  </Tab>
+</Tabs>
+
+## Development Mode
+
+If you're developing or customizing Better Home, you can run a local dev server with hot reload:
+
+```bash
+bun run dev
+```
+
+This starts a development server at `localhost:5173` where you can preview your changes in real-time.
+
+<Warning>
+Hot reload works in the browser preview, but to test the full extension experience you must rebuild with `bun run build` and reload the extension in `chrome://extensions` after code changes.
+</Warning>
+
+## Troubleshooting
+
+### Bun command not found
+
+Your shell may not have reloaded the PATH after installing Bun.
+
+**Solution:**
+1. Close and reopen your terminal completely
+2. If still not working, manually add Bun to your PATH:
+   - **macOS/Linux:** Add `export BUN_INSTALL="$HOME/.bun"` and `export PATH="$BUN_INSTALL/bin:$PATH"` to your `~/.bashrc` or `~/.zshrc`
+   - **Windows:** Ensure `%USERPROFILE%\.bun\bin` is in your system PATH
+3. Verify with `bun --version`
+
+### Extension not updating after changes
+
+Chrome aggressively caches unpacked extensions.
+
+**Solution:**
+1. Go to `chrome://extensions`
+2. Click the **refresh** icon on the better-home card
+3. Open a fresh new tab
+
+<Tip>
+During active development, keep DevTools open on the new-tab page - it sometimes forces a reload.
+</Tip>
+
+### New tab shows blank page or old content
+
+This can happen when extension files are outdated or corrupted.
+
+**Solution:**
+1. Rebuild the project: `bun run build`
+2. Go to `chrome://extensions`
+3. Remove the existing better-home extension
+4. Re-load it by clicking **Load unpacked** and selecting the fresh `dist` folder
+5. Hard-refresh any open new-tab pages with `Ctrl+Shift+R` (or `Cmd+Shift+R` on macOS)
+
+### Path alias errors ("Cannot find module")
+
+This usually means `@/` path aliases aren't resolving correctly during development.
+
+**Solution:**
+1. Ensure `vite.config.ts` contains the alias:
+   ```typescript
+   resolve: {
+     alias: {
+       "@": path.resolve(__dirname, "./src"),
+     },
+   },
+   ```
+2. Confirm `tsconfig.json` mirrors the alias:
+   ```json
+   "paths": {
+     "@/*": ["./src/*"]
+   }
+   ```
+3. Restart the dev server
+
+### localStorage data not persisting
+
+Extension storage can behave differently in certain scenarios.
+
+**Possible causes:**
+- Running the extension in Incognito mode (storage is cleared on close)
+- Browser privacy settings blocking local storage
+- Extension was reinstalled (clears extension-specific storage)
+
+**Solution:**
+- Ensure you're not in Incognito/Private mode
+- Check `chrome://settings/content/cookies` - ensure "Block third-party cookies" isn't affecting extensions
+- Use the **Backup & Restore** feature in the extension popup to save and restore your data
+- Your data lives in localStorage under keys prefixed with `better-home-`
+
+### Port 5173 already in use
+
+Another process is using the default Vite port.
+
+**Solution:**
+```bash
+# Find and kill the process (Linux/macOS)
+lsof -ti:5173 | xargs kill -9
+
+# Or run Vite on a different port
+bun run dev -- --port 3000
+```
+
+## Next Steps
+
+Now that Better Home is installed, learn how to use its features:
+
+- [Tasks](/features/tasks) - Manage your to-do list
+- [Quick Links](/features/quick-links) - Organize your favorite sites
+- [Mood Calendar](/features/mood-calendar) - Track your daily moods
+- [Widget Customization](/customization/widgets) - Personalize your experience

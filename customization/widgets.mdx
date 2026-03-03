@@ -1,0 +1,214 @@
+---
+title: Widget Customization
+description: Learn how to enable, disable, and configure widgets in Better Home
+---
+
+Better Home provides three customizable widgets that you can enable or disable to create your ideal new tab experience. All widget settings are accessible through the extension popup.
+
+## Available Widgets
+
+Better Home includes three widgets:
+
+<CardGroup cols={3}>
+  <Card title="Tasks" icon="checklist">
+    A todo list to track your daily tasks
+  </Card>
+  <Card title="Quick Links" icon="link">
+    Bookmark manager for frequently visited sites
+  </Card>
+  <Card title="Mood Calendar" icon="calendar-heart">
+    Interactive calendar to track your mood over time
+  </Card>
+</CardGroup>
+
+## Managing Widgets
+
+### Opening the Settings Popup
+
+1. Click the Better Home extension icon in your Chrome toolbar
+2. The popup will display all available widget toggles
+
+### Enabling/Disabling Widgets
+
+Each widget has a toggle switch in the popup. Simply click the switch to enable or disable a widget:
+
+<Frame>
+  <img src="/images/widget-settings.png" alt="Widget settings interface" />
+</Frame>
+
+<Tip>
+Widget settings are saved automatically and sync across all your new tabs in real-time using localStorage.
+</Tip>
+
+## Widget Settings Type
+
+Widget preferences are stored using the following TypeScript interface:
+
+```typescript src/types/widget-settings.ts
+export interface WidgetSettings {
+  showTasks: boolean;
+  showQuickLinks: boolean;
+  showCalendar: boolean;
+}
+
+export const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
+  showTasks: true,
+  showQuickLinks: true,
+  showCalendar: true,
+};
+```
+
+By default, all widgets are enabled when you first install Better Home.
+
+## Layout System
+
+Better Home automatically adjusts the layout based on which widgets are enabled. The layout system uses a smart algorithm to arrange widgets optimally:
+
+<AccordionGroup>
+  <Accordion title="Single Widget Layouts">
+    When only one widget is enabled, it expands to fill the entire viewport:
+    - **Tasks only**: Full-size todo list
+    - **Links only**: Expanded quick links grid
+    - **Calendar only**: Full-size mood calendar
+  </Accordion>
+
+  <Accordion title="Two Widget Layouts">
+    When two widgets are enabled, they share space side-by-side or stacked:
+    - **Tasks + Links**: Two-column layout on desktop, stacked on mobile
+    - **Tasks + Calendar**: Todo list on left, calendar on right
+    - **Links + Calendar**: Quick links on left, calendar on right
+  </Accordion>
+
+  <Accordion title="All Widgets Layout">
+    When all three widgets are enabled:
+    - Tasks and Quick Links stack vertically on the left
+    - Mood Calendar takes up the remaining space on the right
+    - Responsive layout adapts to screen size
+  </Accordion>
+</AccordionGroup>
+
+### Layout Implementation
+
+The layout logic uses a binary flag system to determine which layout to render:
+
+```typescript src/app.tsx
+type LayoutKey =
+  | "none"
+  | "tasks"
+  | "links"
+  | "calendar"
+  | "tasks-links"
+  | "tasks-calendar"
+  | "links-calendar"
+  | "all";
+
+function getLayoutKey(settings: WidgetSettings): LayoutKey {
+  const { showTasks, showQuickLinks, showCalendar } = settings;
+  const flags = `${showTasks ? "1" : "0"}${showQuickLinks ? "1" : "0"}${showCalendar ? "1" : "0"}`;
+
+  const mapping: Record<string, LayoutKey> = {
+    "000": "none",
+    "100": "tasks",
+    "010": "links",
+    "001": "calendar",
+    "110": "tasks-links",
+    "101": "tasks-calendar",
+    "011": "links-calendar",
+    "111": "all",
+  };
+
+  return mapping[flags] || "none";
+}
+```
+
+## Using Widget Settings in Your Code
+
+If you're extending Better Home, you can access widget settings using the `useLocalStorage` hook:
+
+```typescript
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import {
+  DEFAULT_WIDGET_SETTINGS,
+  type WidgetSettings,
+} from "@/types/widget-settings";
+
+function MyComponent() {
+  const [settings, setSettings] = useLocalStorage<WidgetSettings>(
+    "better-home-widget-settings",
+    DEFAULT_WIDGET_SETTINGS
+  );
+
+  // Access individual widget states
+  const { showTasks, showQuickLinks, showCalendar } = settings;
+
+  // Toggle a widget programmatically
+  const toggleTasks = () => {
+    setSettings((prev) => ({
+      ...prev,
+      showTasks: !prev.showTasks,
+    }));
+  };
+}
+```
+
+<Note>
+The `useLocalStorage` hook automatically syncs changes across components and browser tabs, ensuring a consistent experience.
+</Note>
+
+## Popup Implementation
+
+The widget toggle interface in the popup is built with React and uses the Switch component from shadcn/ui:
+
+```tsx src/popup-app.tsx
+function PopupApp() {
+  const [settings, setSettings] = useLocalStorage<WidgetSettings>(
+    "better-home-widget-settings",
+    DEFAULT_WIDGET_SETTINGS
+  );
+
+  const toggleSetting = (key: keyof WidgetSettings) => {
+    setSettings((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  return (
+    <div className="space-y-0.5">
+      <div className="flex items-center justify-between rounded-md px-2 py-1.5">
+        <div className="flex items-center gap-2">
+          <IconChecklist className="size-3.5 text-muted-foreground" />
+          <Label htmlFor="show-tasks">tasks</Label>
+        </div>
+        <Switch
+          checked={settings.showTasks}
+          id="show-tasks"
+          onCheckedChange={() => toggleSetting("showTasks")}
+        />
+      </div>
+      {/* Similar structure for Quick Links and Calendar */}
+    </div>
+  );
+}
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Start with defaults">
+    Begin with all widgets enabled to explore all features
+  </Step>
+  <Step title="Customize based on workflow">
+    Disable widgets you don't use to create a cleaner interface
+  </Step>
+  <Step title="Experiment with layouts">
+    Try different widget combinations to find your preferred layout
+  </Step>
+  <Step title="Use responsive design">
+    The layout adapts automatically to your screen size
+  </Step>
+</Steps>
+
+<Warning>
+If you disable all widgets, Better Home will display a placeholder message. At least one widget should be enabled for a productive new tab experience.
+</Warning>

@@ -1,0 +1,326 @@
+---
+title: Backup & Restore
+description: Export and import all your Better Home data for safekeeping and migration
+---
+
+The backup and restore functionality allows you to export all your Better Home data to a JSON file and restore it later. This is essential for data safety, browser migration, and device synchronization.
+
+## Overview
+
+All Better Home data is stored in your browser's localStorage. The backup system collects all stored data, packages it into a downloadable JSON file, and can restore that data to any browser running Better Home.
+
+### What Gets Backed Up
+
+The following localStorage keys are included in backups:
+
+```typescript src/lib/backup-utils.ts
+const STORAGE_KEYS = [
+  "better-home-widget-settings",
+  "better-home-todos",
+  "better-home-todo-sort",
+  "better-home-todo-filters",
+  "better-home-quick-links",
+  "mood-calendar-2026-data",
+  "mood-calendar-show-numbers",
+  "vite-ui-theme",
+] as const;
+```
+
+<AccordionGroup>
+  <Accordion title="better-home-widget-settings">
+    Widget visibility and layout preferences
+  </Accordion>
+
+  <Accordion title="better-home-todos">
+    All task items with completion status and importance flags
+  </Accordion>
+
+  <Accordion title="better-home-todo-sort">
+    Current sorting mode (manual, oldest, newest)
+  </Accordion>
+
+  <Accordion title="better-home-todo-filters">
+    Active filters (hide completed, important only)
+  </Accordion>
+
+  <Accordion title="better-home-quick-links">
+    All saved quick links with URLs and titles
+  </Accordion>
+
+  <Accordion title="mood-calendar-2026-data">
+    All mood, work log, and journal entries for 2026
+  </Accordion>
+
+  <Accordion title="mood-calendar-show-numbers">
+    Calendar date number visibility preference
+  </Accordion>
+
+  <Accordion title="vite-ui-theme">
+    Theme preference (light/dark mode)
+  </Accordion>
+</AccordionGroup>
+
+## Creating Backups
+
+The backup process collects all data from localStorage:
+
+```typescript src/lib/backup-utils.ts
+interface BackupData {
+  [key: string]: unknown;
+}
+
+export function createBackup(): BackupData {
+  const backup: BackupData = {};
+
+  for (const key of STORAGE_KEYS) {
+    const value = localStorage.getItem(key);
+    if (value) {
+      try {
+        backup[key] = JSON.parse(value);
+      } catch {
+        backup[key] = value;
+      }
+    }
+  }
+
+  return backup;
+}
+```
+
+### Backup Processing
+
+1. Iterates through all defined storage keys
+2. Reads each value from localStorage
+3. Attempts to parse JSON values
+4. Falls back to raw string if parsing fails
+5. Returns object with all found data
+
+<Note>
+  Only keys that exist in localStorage are included. Empty or missing keys are omitted from the backup file.
+</Note>
+
+## Downloading Backups
+
+Backup data is converted to a formatted JSON file and downloaded:
+
+```typescript src/lib/backup-utils.ts
+export function downloadBackup(backup: BackupData): void {
+  const dataStr = JSON.stringify(backup, null, 2);
+  const dataBlob = new Blob([dataStr], { type: "application/json" });
+  const url = URL.createObjectURL(dataBlob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `better-home-backup-${new Date().toISOString().split("T")[0]}.json`;
+  link.style.display = "none";
+
+  const container = document.body || document.documentElement;
+  container.appendChild(link);
+  link.click();
+  container.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+```
+
+### File Naming Convention
+
+```
+better-home-backup-YYYY-MM-DD.json
+```
+
+Example: `better-home-backup-2026-03-15.json`
+
+The ISO date format ensures chronological sorting and makes it easy to identify when backups were created.
+
+### Download Process
+
+1. **Stringify**: Convert backup object to formatted JSON (2-space indent)
+2. **Blob Creation**: Create a Blob with MIME type `application/json`
+3. **Object URL**: Generate a temporary download URL
+4. **DOM Manipulation**: Create hidden anchor element and trigger click
+5. **Cleanup**: Remove anchor and revoke object URL to free memory
+
+<Tip>
+  The function uses `document.body || document.documentElement` to ensure compatibility even if called before the DOM is fully loaded.
+</Tip>
+
+## Restoring Backups
+
+Restore writes backup data back to localStorage:
+
+```typescript src/lib/backup-utils.ts
+export function restoreBackup(backup: BackupData): void {
+  for (const key of Object.keys(backup)) {
+    const value = backup[key];
+
+    if (typeof value === "string" && key === "vite-ui-theme") {
+      localStorage.setItem(key, value);
+    } else {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+  }
+}
+```
+
+### Restore Logic
+
+**Special Case - Theme**:
+The `vite-ui-theme` key stores a raw string value (`"light"` or `"dark"`), not JSON.
+
+```typescript
+if (typeof value === "string" && key === "vite-ui-theme") {
+  localStorage.setItem(key, value);
+}
+```
+
+**All Other Keys**:
+Values are stringified before storage:
+
+```typescript
+else {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+```
+
+<Warning>
+  Restoring a backup **overwrites** all current data for the included keys. Any data not in the backup file will be preserved, but matching keys are replaced entirely.
+</Warning>
+
+## Parsing Backup Files
+
+Handle file input and JSON parsing:
+
+```typescript src/lib/backup-utils.ts
+export function parseBackupFile(
+  file: File,
+  onSuccess: (backup: BackupData) => void
+): void {
+  const reader = new FileReader();
+
+  reader.onload = (e) => {
+    try {
+      const backup = JSON.parse(e.target?.result as string) as BackupData;
+      onSuccess(backup);
+    } catch {
+      // Silently fail on invalid JSON
+    }
+  };
+
+  reader.readAsText(file);
+}
+```
+
+### Error Handling
+
+The function silently fails on invalid JSON rather than throwing errors. This provides a better user experience:
+
+- No error dialogs for corrupted files
+- No console spam from failed parses
+- Application remains stable
+
+<Info>
+  In a production UI, you would likely want to show user-friendly error messages instead of silent failures. The current implementation prioritizes simplicity.
+</Info>
+
+## Usage Workflow
+
+### Creating and Downloading
+
+```typescript
+import { createBackup, downloadBackup } from "@/lib/backup-utils";
+
+function handleBackup() {
+  const backup = createBackup();
+  downloadBackup(backup);
+}
+```
+
+### Restoring from File
+
+```typescript
+import { parseBackupFile, restoreBackup } from "@/lib/backup-utils";
+
+function handleRestore(file: File) {
+  parseBackupFile(file, (backup) => {
+    restoreBackup(backup);
+    // Optionally reload the page to reflect changes
+    window.location.reload();
+  });
+}
+```
+
+<Note>
+  A page reload is typically needed after restore to ensure all components re-read the updated localStorage values.
+</Note>
+
+## Backup File Format
+
+Example backup file structure:
+
+```json
+{
+  "better-home-todos": [
+    {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "text": "finish documentation",
+      "completed": false,
+      "important": true,
+      "createdAt": 1709481600000
+    }
+  ],
+  "better-home-todo-sort": "manual",
+  "better-home-todo-filters": {
+    "hideCompleted": false,
+    "importantOnly": false
+  },
+  "better-home-quick-links": [
+    {
+      "id": "987fcdeb-51a2-43f7-9876-543210fedcba",
+      "title": "github.com",
+      "url": "https://github.com",
+      "favicon": "https://www.google.com/s2/favicons?domain=github.com&sz=64"
+    }
+  ],
+  "mood-calendar-2026-data": {
+    "2026-3-15": {
+      "mood": "goodDay",
+      "workLog": "Completed feature implementation",
+      "journal": "Felt productive today"
+    }
+  },
+  "mood-calendar-show-numbers": true,
+  "vite-ui-theme": "dark"
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Regular Backups" icon="clock">
+    Create backups weekly or before major changes to avoid data loss
+  </Card>
+
+  <Card title="Version Control" icon="code-branch">
+    Keep multiple backup files with dates to maintain history
+  </Card>
+
+  <Card title="Cloud Storage" icon="cloud">
+    Store backup files in cloud storage (Dropbox, Google Drive) for accessibility
+  </Card>
+
+  <Card title="Before Reinstall" icon="download">
+    Always backup before reinstalling the extension or clearing browser data
+  </Card>
+</CardGroup>
+
+## Migration Use Cases
+
+1. **New Computer**: Backup on old device, restore on new device
+2. **Browser Switch**: Move data from Chrome to Edge/Brave/etc.
+3. **Extension Reinstall**: Preserve data through extension updates
+4. **Sync Across Devices**: Manually sync data between work and personal computers
+5. **Data Recovery**: Restore from backup after accidental deletion
+
+<Warning>
+  Better Home does not include automatic cloud sync. You must manually backup and restore data between devices.
+</Warning>

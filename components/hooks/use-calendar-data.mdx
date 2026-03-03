@@ -1,0 +1,245 @@
+---
+title: useCalendarData
+description: A React hook for managing calendar mood data with localStorage persistence and convenient CRUD operations.
+---
+
+## Overview
+
+The `useCalendarData` hook provides a high-level API for managing calendar entries with automatic localStorage persistence. It builds on top of `useLocalStorage` to provide specific operations for calendar data management.
+
+## Signature
+
+```typescript
+function useCalendarData(): {
+  calendarData: CalendarData;
+  handleSaveEntry: (dateKey: string, entry: DayEntry) => void;
+  getEntryForDate: (dateKey: string) => DayEntry;
+}
+```
+
+## Parameters
+
+This hook takes no parameters.
+
+## Return Value
+
+Returns an object with three properties:
+
+<ParamField path="calendarData" type="CalendarData">
+  The complete calendar data object. A record mapping date keys to day entries.
+  
+  ```typescript
+  type CalendarData = {
+    [dateKey: string]: DayEntry;
+  }
+  ```
+</ParamField>
+
+<ParamField path="handleSaveEntry" type="(dateKey: string, entry: DayEntry) => void">
+  Function to save or update an entry for a specific date. Merges the new entry with existing calendar data.
+</ParamField>
+
+<ParamField path="getEntryForDate" type="(dateKey: string) => DayEntry">
+  Function to retrieve an entry for a specific date. Returns a default empty entry if none exists.
+</ParamField>
+
+## Related Types
+
+### DayEntry
+
+```typescript
+interface DayEntry {
+  mood: MoodType | null;
+  workLog: string;
+  journal: string;
+}
+```
+
+### CalendarData
+
+```typescript
+interface CalendarData {
+  [dateKey: string]: DayEntry;
+}
+```
+
+### MoodType
+
+```typescript
+type MoodType = "amazing" | "good" | "okay" | "bad" | "awful";
+```
+
+## Usage Examples
+
+### Basic Usage in Interactive Calendar
+
+```tsx
+import { useCalendarData } from "@/hooks/use-calendar-data";
+import type { InteractiveCalendarProps } from "@/types/calendar";
+
+export function InteractiveCalendar({ className }: InteractiveCalendarProps) {
+  const { getEntryForDate, handleSaveEntry } = useCalendarData();
+
+  const getFillColor = (dateKey: string): string => {
+    const entry = getEntryForDate(dateKey);
+    if (entry.mood) {
+      return MOOD_COLORS[entry.mood].color;
+    }
+    if (entry.workLog || entry.journal) {
+      return "var(--muted)";
+    }
+    return "var(--muted)";
+  };
+
+  return (
+    <MonthGrid
+      getEntryForDate={getEntryForDate}
+      getFillColor={getFillColor}
+      handleSaveEntry={handleSaveEntry}
+      month={month}
+      monthIndex={monthIndex}
+    />
+  );
+}
+```
+
+### Saving a Calendar Entry
+
+```tsx
+import { useCalendarData } from "@/hooks/use-calendar-data";
+import type { DayEntry } from "@/types/calendar";
+
+function DatePopover({ dateKey }: { dateKey: string }) {
+  const { handleSaveEntry, getEntryForDate } = useCalendarData();
+  const [entry, setEntry] = useState<DayEntry>(getEntryForDate(dateKey));
+
+  const handleSave = () => {
+    handleSaveEntry(dateKey, entry);
+  };
+
+  return (
+    <div>
+      <input
+        value={entry.journal}
+        onChange={(e) => setEntry({ ...entry, journal: e.target.value })}
+      />
+      <button onClick={handleSave}>Save</button>
+    </div>
+  );
+}
+```
+
+### Reading Calendar Data
+
+```tsx
+import { useCalendarData } from "@/hooks/use-calendar-data";
+
+function MonthGrid({ monthIndex }: { monthIndex: number }) {
+  const { getEntryForDate } = useCalendarData();
+
+  const days = Array.from({ length: 31 }, (_, i) => {
+    const dateKey = `2026-${String(monthIndex + 1).padStart(2, "0")}-${String(
+      i + 1
+    ).padStart(2, "0")}`;
+    const entry = getEntryForDate(dateKey);
+
+    return (
+      <div key={dateKey} data-has-mood={entry.mood !== null}>
+        {i + 1}
+      </div>
+    );
+  });
+
+  return <div>{days}</div>;
+}
+```
+
+### Updating Mood Data
+
+```tsx
+import { useCalendarData } from "@/hooks/use-calendar-data";
+import type { MoodType } from "@/lib/calendar-constants";
+
+function MoodSelector({
+  dateKey,
+  selectedMood,
+}: {
+  dateKey: string;
+  selectedMood: MoodType | null;
+}) {
+  const { handleSaveEntry, getEntryForDate } = useCalendarData();
+
+  const onSelectMood = (mood: MoodType) => {
+    const entry = getEntryForDate(dateKey);
+    handleSaveEntry(dateKey, {
+      ...entry,
+      mood,
+    });
+  };
+
+  return (
+    <div>
+      <button onClick={() => onSelectMood("amazing")}>Amazing</button>
+      <button onClick={() => onSelectMood("good")}>Good</button>
+      <button onClick={() => onSelectMood("okay")}>Okay</button>
+      <button onClick={() => onSelectMood("bad")}>Bad</button>
+      <button onClick={() => onSelectMood("awful")}>Awful</button>
+    </div>
+  );
+}
+```
+
+## Implementation Details
+
+### Storage Key
+
+The hook stores data under the key `"mood-calendar-2026-data"` in localStorage.
+
+### Default Entry
+
+When no entry exists for a date, `getEntryForDate` returns:
+
+```typescript
+{
+  mood: null,
+  workLog: "",
+  journal: ""
+}
+```
+
+### Data Persistence
+
+The hook uses `useLocalStorage` internally, which means:
+
+- Data is automatically saved to localStorage on every update
+- Changes sync across browser tabs automatically
+- Data persists between browser sessions
+- Handles storage errors gracefully
+
+### Immutable Updates
+
+The `handleSaveEntry` function creates a new object for each update:
+
+```typescript
+const handleSaveEntry = useCallback(
+  (dateKey: string, entry: DayEntry) => {
+    setCalendarData((prev) => ({
+      ...prev,
+      [dateKey]: entry,
+    }));
+  },
+  [setCalendarData]
+);
+```
+
+## Performance Considerations
+
+- Both `handleSaveEntry` and `getEntryForDate` are memoized with `useCallback` to prevent unnecessary re-renders
+- The hook only updates when calendar data changes
+- Each entry update creates a new object, ensuring React can detect changes
+
+## See Also
+
+- [useLocalStorage](/components/hooks/use-local-storage) - The underlying storage hook
+- [InteractiveCalendar](/components/interactive-calendar) - Main consumer of this hook
+- [Mood Calendar Feature](/features/mood-calendar) - User guide for the mood calendar

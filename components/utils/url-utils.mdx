@@ -1,0 +1,322 @@
+---
+title: "URL Utilities"
+description: "Utilities for normalizing, validating, and extracting information from URLs"
+---
+
+## Overview
+
+The URL utilities module provides functions for working with URLs in the quick links feature. It handles URL normalization, validation, title extraction, and favicon retrieval.
+
+## Regular Expressions
+
+```typescript
+const HTTPS_REGEX = /^https?:\/\//i;
+const WWW_REGEX = /^www\./;
+```
+
+Internal patterns for detecting protocols and www prefixes.
+
+## Functions
+
+### normalizeUrl
+
+```typescript
+function normalizeUrl(url: string): string
+```
+
+Normalizes a URL by ensuring it has a protocol prefix.
+
+**Parameters:**
+- `url` - The URL string to normalize
+
+**Returns:** `string` - Normalized URL with `https://` prefix, or empty string if input is empty
+
+**Behavior:**
+- Trims whitespace from input
+- Returns empty string if input is empty/whitespace
+- Adds `https://` prefix if no protocol is present
+- Preserves existing `http://` or `https://` protocols
+
+**Example:**
+
+```tsx
+import { normalizeUrl } from "@/lib/url-utils";
+
+normalizeUrl("google.com");
+// Returns: "https://google.com"
+
+normalizeUrl("http://example.com");
+// Returns: "http://example.com"
+
+normalizeUrl("  github.com  ");
+// Returns: "https://github.com"
+
+normalizeUrl("");
+// Returns: ""
+```
+
+### extractTitle
+
+```typescript
+function extractTitle(url: string): string
+```
+
+Extracts a display title from a URL by using the hostname.
+
+**Parameters:**
+- `url` - The URL to extract a title from
+
+**Returns:** `string` - Lowercase hostname without `www.` prefix, or lowercase URL if parsing fails
+
+**Behavior:**
+- Parses URL to extract hostname
+- Removes `www.` prefix if present
+- Converts result to lowercase
+- Falls back to lowercase URL if parsing fails
+
+**Example:**
+
+```tsx
+import { extractTitle } from "@/lib/url-utils";
+
+extractTitle("https://www.github.com/user/repo");
+// Returns: "github.com"
+
+extractTitle("https://docs.example.com");
+// Returns: "docs.example.com"
+
+extractTitle("not-a-url");
+// Returns: "not-a-url"
+```
+
+### getFaviconUrl
+
+```typescript
+function getFaviconUrl(url: string): string
+```
+
+Generates a Google favicon service URL for the given URL's domain.
+
+**Parameters:**
+- `url` - The URL to get a favicon for
+
+**Returns:** `string` - Google favicon service URL, or empty string if URL is invalid
+
+**Behavior:**
+- Extracts hostname from URL
+- Returns Google's favicon service URL with 64px size
+- Returns empty string if URL parsing fails
+
+**Example:**
+
+```tsx
+import { getFaviconUrl } from "@/lib/url-utils";
+
+getFaviconUrl("https://github.com");
+// Returns: "https://www.google.com/s2/favicons?domain=github.com&sz=64"
+
+function LinkWithIcon({ url }: { url: string }) {
+  return (
+    <a href={url}>
+      <img src={getFaviconUrl(url)} alt="" width={16} height={16} />
+      {extractTitle(url)}
+    </a>
+  );
+}
+```
+
+### isValidUrl
+
+```typescript
+function isValidUrl(url: string): boolean
+```
+
+Validates whether a string is a valid URL.
+
+**Parameters:**
+- `url` - The string to validate
+
+**Returns:** `boolean` - `true` if valid URL, `false` otherwise
+
+**Behavior:**
+- Uses native URL constructor for validation
+- Returns `true` if URL can be parsed
+- Returns `false` if URL constructor throws
+
+<Info>
+  This function requires a protocol to be present. Use with `normalizeUrl` to validate user input.
+</Info>
+
+**Example:**
+
+```tsx
+import { isValidUrl, normalizeUrl } from "@/lib/url-utils";
+
+isValidUrl("https://github.com");
+// Returns: true
+
+isValidUrl("github.com");
+// Returns: false (no protocol)
+
+isValidUrl("not a url");
+// Returns: false
+
+// Proper validation flow:
+const userInput = "github.com";
+const normalized = normalizeUrl(userInput);
+if (isValidUrl(normalized)) {
+  console.log("Valid URL:", normalized);
+}
+```
+
+## Complete Example
+
+Here's a complete implementation of adding quick links:
+
+```tsx
+import { useState } from "react";
+import {
+  normalizeUrl,
+  extractTitle,
+  getFaviconUrl,
+  isValidUrl,
+} from "@/lib/url-utils";
+
+interface QuickLink {
+  id: string;
+  title: string;
+  url: string;
+  favicon: string;
+}
+
+function QuickLinks() {
+  const [links, setLinks] = useState<QuickLink[]>([]);
+  const [newUrl, setNewUrl] = useState("");
+  const [error, setError] = useState("");
+
+  const addLink = () => {
+    // Normalize URL first
+    const normalizedUrl = normalizeUrl(newUrl);
+    if (!normalizedUrl) {
+      setError("URL cannot be empty");
+      return;
+    }
+
+    // Validate normalized URL
+    if (!isValidUrl(normalizedUrl)) {
+      setError("Invalid URL format");
+      return;
+    }
+
+    // Create link with extracted metadata
+    const link: QuickLink = {
+      id: crypto.randomUUID(),
+      title: extractTitle(normalizedUrl),
+      url: normalizedUrl,
+      favicon: getFaviconUrl(normalizedUrl),
+    };
+
+    setLinks((prev) => [...prev, link]);
+    setNewUrl("");
+    setError("");
+  };
+
+  return (
+    <div>
+      <div>
+        <input
+          type="text"
+          value={newUrl}
+          onChange={(e) => setNewUrl(e.target.value)}
+          placeholder="Enter URL (e.g., github.com)"
+        />
+        <button onClick={addLink}>Add Link</button>
+        {error && <div style={{ color: "red" }}>{error}</div>}
+      </div>
+
+      <div>
+        {links.map((link) => (
+          <a key={link.id} href={link.url}>
+            <img src={link.favicon} alt="" width={16} height={16} />
+            {link.title}
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+## Usage with Quick Links Component
+
+Here's how these utilities are used in the actual Quick Links component:
+
+```tsx
+import {
+  extractTitle,
+  getFaviconUrl,
+  isValidUrl,
+  normalizeUrl,
+} from "@/lib/url-utils";
+
+const addLink = () => {
+  const normalizedUrl = normalizeUrl(newUrl);
+  if (!normalizedUrl) {
+    return;
+  }
+
+  if (!isValidUrl(normalizedUrl)) {
+    return;
+  }
+
+  const link: QuickLink = {
+    id: crypto.randomUUID(),
+    title: extractTitle(normalizedUrl),
+    url: normalizedUrl,
+    favicon: getFaviconUrl(normalizedUrl),
+  };
+
+  setLinks((prev) => [...prev, link]);
+  setNewUrl("");
+};
+```
+
+## Common Patterns
+
+### URL Validation Flow
+
+```tsx
+const validateAndNormalize = (input: string): string | null => {
+  const normalized = normalizeUrl(input);
+  if (!normalized || !isValidUrl(normalized)) {
+    return null;
+  }
+  return normalized;
+};
+```
+
+### Link Preview
+
+```tsx
+function LinkPreview({ url }: { url: string }) {
+  const normalized = normalizeUrl(url);
+  const isValid = isValidUrl(normalized);
+
+  if (!isValid) {
+    return <div>Invalid URL</div>;
+  }
+
+  return (
+    <div>
+      <img src={getFaviconUrl(normalized)} alt="" />
+      <span>{extractTitle(normalized)}</span>
+      <a href={normalized}>Visit</a>
+    </div>
+  );
+}
+```
+
+## Related
+
+- [Quick Links Component](/components/quick-links) - Uses these utilities for URL management
+- [Quick Links Feature](/features/quick-links) - User guide for quick links

@@ -1,0 +1,301 @@
+---
+title: "Todo Utilities"
+description: "Utilities for filtering, sorting, and managing todo list items"
+---
+
+## Overview
+
+The todo utilities module provides functions for manipulating todo lists, including filtering by completion status and importance, sorting by creation date, and merging reordered items with hidden items.
+
+## Constants
+
+### DELETE_HOLD_DURATION
+
+```typescript
+const DELETE_HOLD_DURATION = 1500;
+```
+
+Duration in milliseconds to hold before deleting a todo item (1.5 seconds).
+
+## Types
+
+### Todo
+
+```typescript
+interface Todo {
+  id: string;
+  text: string;
+  completed: boolean;
+  important: boolean;
+  createdAt: number;
+}
+```
+
+### TodoFilters
+
+```typescript
+interface TodoFilters {
+  hideCompleted: boolean;
+  importantOnly: boolean;
+}
+```
+
+### SortMode
+
+```typescript
+type SortMode = "manual" | "oldest" | "newest";
+```
+
+## Functions
+
+### applyFilters
+
+```typescript
+function applyFilters(todos: Todo[], filters: TodoFilters): Todo[]
+```
+
+Filters todos based on completion status and importance.
+
+**Parameters:**
+- `todos` - Array of todo items
+- `filters` - Filter configuration object
+
+**Returns:** `Todo[]` - Filtered array of todos
+
+**Behavior:**
+- When `hideCompleted` is true, removes completed todos
+- When `importantOnly` is true, keeps only important todos
+- Creates a new array (does not mutate input)
+
+**Example:**
+
+```tsx
+import { applyFilters } from "@/lib/todo-utils";
+import type { Todo, TodoFilters } from "@/types/todo";
+
+const todos: Todo[] = [
+  { id: "1", text: "Task 1", completed: false, important: true, createdAt: 1 },
+  { id: "2", text: "Task 2", completed: true, important: false, createdAt: 2 },
+  { id: "3", text: "Task 3", completed: false, important: false, createdAt: 3 },
+];
+
+const filters: TodoFilters = {
+  hideCompleted: true,
+  importantOnly: false,
+};
+
+const filtered = applyFilters(todos, filters);
+// Returns: [Task 1, Task 3]
+```
+
+### applySorting
+
+```typescript
+function applySorting(todos: Todo[], sortMode: SortMode): Todo[]
+```
+
+Sorts todos based on the specified sort mode.
+
+**Parameters:**
+- `todos` - Array of todo items
+- `sortMode` - Sort method: `"manual"`, `"oldest"`, or `"newest"`
+
+**Returns:** `Todo[]` - Sorted array of todos
+
+**Behavior:**
+- `"oldest"` - Sorts by `createdAt` ascending (oldest first)
+- `"newest"` - Sorts by `createdAt` descending (newest first)
+- `"manual"` - Returns array as-is (preserves manual ordering)
+- Creates a new array when sorting (does not mutate input)
+
+**Example:**
+
+```tsx
+import { applySorting } from "@/lib/todo-utils";
+import type { Todo, SortMode } from "@/types/todo";
+
+const todos: Todo[] = [
+  { id: "1", text: "First", completed: false, important: false, createdAt: 100 },
+  { id: "2", text: "Second", completed: false, important: false, createdAt: 200 },
+  { id: "3", text: "Third", completed: false, important: false, createdAt: 300 },
+];
+
+const newest = applySorting(todos, "newest");
+// Returns: [Third, Second, First]
+
+const oldest = applySorting(todos, "oldest");
+// Returns: [First, Second, Third]
+```
+
+### applyFiltersAndSorting
+
+```typescript
+function applyFiltersAndSorting(
+  todos: Todo[],
+  filters: TodoFilters,
+  sortMode: SortMode
+): Todo[]
+```
+
+Applies both filtering and sorting in a single operation.
+
+**Parameters:**
+- `todos` - Array of todo items
+- `filters` - Filter configuration object
+- `sortMode` - Sort method
+
+**Returns:** `Todo[]` - Filtered and sorted array
+
+**Behavior:**
+- First applies filters, then applies sorting
+- Equivalent to `applySorting(applyFilters(todos, filters), sortMode)`
+
+**Example:**
+
+```tsx
+import { applyFiltersAndSorting } from "@/lib/todo-utils";
+import type { Todo, TodoFilters, SortMode } from "@/types/todo";
+
+function TodoList() {
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [filters, setFilters] = useState<TodoFilters>({
+    hideCompleted: false,
+    importantOnly: false,
+  });
+  const [sortMode, setSortMode] = useState<SortMode>("manual");
+
+  const displayedTodos = applyFiltersAndSorting(todos, filters, sortMode);
+
+  return (
+    <div>
+      {displayedTodos.map((todo) => (
+        <div key={todo.id}>{todo.text}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+### mergeReorderedWithHidden
+
+```typescript
+function mergeReorderedWithHidden(
+  reorderedTodos: Todo[],
+  allTodos: Todo[],
+  filters: TodoFilters
+): Todo[]
+```
+
+Merges manually reordered todos with hidden todos, preserving the reordered positions.
+
+**Parameters:**
+- `reorderedTodos` - The visible todos in their new order
+- `allTodos` - Complete list of all todos
+- `filters` - Current filter configuration
+
+**Returns:** `Todo[]` - Combined array with reordered items first, then hidden items
+
+**Behavior:**
+- Identifies which todos are hidden by current filters
+- Categorizes hidden todos into:
+  - Completed items (if `hideCompleted` is true)
+  - Non-important items (if `importantOnly` is true)
+  - Important incomplete items (always appended)
+- Appends hidden todos after reordered todos
+
+<Warning>
+  This function is essential for maintaining data integrity when using drag-and-drop reordering with active filters.
+</Warning>
+
+**Example:**
+
+```tsx
+import { mergeReorderedWithHidden } from "@/lib/todo-utils";
+import type { Todo, TodoFilters } from "@/types/todo";
+
+function TodoList() {
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [filters, setFilters] = useState<TodoFilters>({
+    hideCompleted: true,
+    importantOnly: false,
+  });
+
+  const handleReorder = (reorderedTodos: Todo[]) => {
+    // Merge reordered visible todos with hidden completed todos
+    setTodos((prev) => mergeReorderedWithHidden(reorderedTodos, prev, filters));
+  };
+
+  return (
+    <DraggableList items={displayedTodos} onReorder={handleReorder} />
+  );
+}
+```
+
+## Complete Example
+
+Here's a complete implementation with filtering, sorting, and reordering:
+
+```tsx
+import { useState } from "react";
+import {
+  applyFiltersAndSorting,
+  mergeReorderedWithHidden,
+  DELETE_HOLD_DURATION,
+} from "@/lib/todo-utils";
+import type { Todo, TodoFilters, SortMode } from "@/types/todo";
+
+function TodoApp() {
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [filters, setFilters] = useState<TodoFilters>({
+    hideCompleted: false,
+    importantOnly: false,
+  });
+  const [sortMode, setSortMode] = useState<SortMode>("manual");
+
+  // Get displayed todos with filters and sorting applied
+  const displayedTodos = applyFiltersAndSorting(todos, filters, sortMode);
+  const canReorder = sortMode === "manual";
+
+  const handleReorder = (reorderedTodos: Todo[]) => {
+    if (!canReorder) return;
+    setTodos((prev) => mergeReorderedWithHidden(reorderedTodos, prev, filters));
+  };
+
+  const toggleFilter = (filterKey: keyof TodoFilters) => {
+    setFilters((prev) => ({ ...prev, [filterKey]: !prev[filterKey] }));
+  };
+
+  return (
+    <div>
+      <div>
+        <button onClick={() => toggleFilter("hideCompleted")}
+          Hide Completed: {filters.hideCompleted ? "ON" : "OFF"}
+        </button>
+        <button onClick={() => toggleFilter("importantOnly")}>
+          Important Only: {filters.importantOnly ? "ON" : "OFF"}
+        </button>
+        <select value={sortMode} onChange={(e) => setSortMode(e.target.value as SortMode)}>
+          <option value="manual">Manual</option>
+          <option value="oldest">Oldest First</option>
+          <option value="newest">Newest First</option>
+        </select>
+      </div>
+
+      <div>
+        {displayedTodos.map((todo) => (
+          <div key={todo.id}>
+            {todo.text}
+            {todo.completed && " ✓"}
+            {todo.important && " ★"}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+## Related
+
+- [Todo List Component](/components/todo-list) - Uses these utilities for todo management
+- [Tasks Feature](/features/tasks) - User guide for task management
